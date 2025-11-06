@@ -10,6 +10,7 @@ import { SocketEvent } from "@/types/socket"
 import { color } from "@uiw/codemirror-extensions-color"
 import { hyperLink } from "@uiw/codemirror-extensions-hyper-link"
 import { LanguageName, loadLanguage } from "@uiw/codemirror-extensions-langs"
+import { lineNumbers } from "@codemirror/view"
 import CodeMirror, {
     Extension,
     ViewUpdate,
@@ -56,6 +57,7 @@ function Editor() {
 
     useEffect(() => {
         const extensions = [
+            lineNumbers(),
             color,
             hyperLink,
             tooltipField(filteredUsers),

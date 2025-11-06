@@ -69,15 +69,17 @@ function FileTab() {
 
     return (
         <div
-            className="flex h-[50px] w-full select-none gap-2 overflow-x-auto p-2 pb-0"
+            className="flex h-[50px] w-full select-none gap-2 overflow-x-auto p-2 pb-0 md:pl-[70px] bg-neutral-50 dark:bg-neutral-900 border-b border-neutral-200 dark:border-neutral-800"
             ref={fileTabRef}
         >
             {openFiles.map((file) => (
                 <span
                     key={file.id}
                     className={cn(
-                        "flex w-fit cursor-pointer items-center rounded-t-md px-2 py-1 text-white",
-                        { "bg-darkHover": file.id === activeFile?.id },
+                        "flex w-fit cursor-pointer items-center rounded-t-md px-3 py-2 text-neutral-700 dark:text-neutral-300 transition-all duration-200 hover:bg-neutral-200 dark:hover:bg-neutral-800 border border-transparent border-b-0",
+                        { 
+                            "bg-white dark:bg-neutral-950 border-neutral-200 dark:border-neutral-700 text-neutral-900 dark:text-neutral-100 font-medium": file.id === activeFile?.id 
+                        },
                     )}
                     onClick={() => changeActiveFile(file.id)}
                 >
@@ -87,15 +89,18 @@ function FileTab() {
                         className="mr-2 min-w-fit"
                     />
                     <p
-                        className="flex-grow cursor-pointer overflow-hidden truncate"
+                        className="flex-grow cursor-pointer overflow-hidden truncate whitespace-nowrap min-w-[80px]"
                         title={file.name}
                     >
                         {file.name}
                     </p>
                     <IoClose
-                        className="ml-3 inline rounded-md hover:bg-darkHover"
+                        className="ml-3 inline rounded-md hover:bg-neutral-300 dark:hover:bg-neutral-700 transition-colors duration-200"
                         size={20}
-                        onClick={() => closeFile(file.id)}
+                        onClick={(e) => {
+                            e.stopPropagation()
+                            closeFile(file.id)
+                        }}
                     />
                 </span>
             ))}

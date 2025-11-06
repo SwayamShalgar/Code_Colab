@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebRTC Debug Helper - Code-Sync</title>
+    <style>
+        body {
+            font-family: 'Courier New', monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            line-height: 1.6;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        h1 {
+            color: #00ffff;
+            border-bottom: 2px solid #00ffff;
+            padding-bottom: 10px;
+        }
+        h2 {
+            color: #ffff00;
+            margin-top: 30px;
+        }
+        .debug-section {
+            background: #2a2a2a;
+            padding: 15px;
+            margin: 10px 0;
+            border-left: 4px solid #00ff00;
+            border-radius: 4px;
+        }
+        button {
+            background: #00ff00;
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin: 5px;
+            border-radius: 4px;
+            font-weight: bold;
+        }
+        button:hover {
+            background: #00ff00cc;
+        }
+        .output {
+            background: #000;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #00ff00;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .success { color: #00ff00; }
+        .warning { color: #ffff00; }
+        .error { color: #ff0000; }
+        .info { color: #00ffff; }
+        pre {
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .status-indicator {
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            margin-right: 8px;
+        }
+        .status-on { background: #00ff00; }
+        .status-off { background: #666; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🛠️ WebRTC Debug Helper - Code-Sync</h1>
+        <p class="info">Open this in your browser console while testing the application</p>
+
+        <div class="debug-section">
+            <h2>📊 Current Media State</h2>
+            <button onclick="checkMediaState()">Check Media State</button>
+            <button onclick="checkConnections()">Check Connections</button>
+            <button onclick="checkTracks()">Check All Tracks</button>
+            <button onclick="clearOutput()">Clear Output</button>
+            <div id="output" class="output"></div>
+        </div>
+
+        <div class="debug-section">
+            <h2>📋 Copy Debug Scripts</h2>
+            <p>Copy these commands to paste in browser console:</p>
+            
+            <h3>1. Monitor Track States (every 3 seconds)</h3>
+            <pre>const monitorTracks = setInterval(() => {
+    console.clear()
+    console.log('=== TRACK MONITORING ===')
+    document.querySelectorAll('video').forEach((video, i) => {
+        if (video.srcObject) {
+            console.log(`Video ${i}:`)
+            video.srcObject.getTracks().forEach(track => {
+                console.log(`  ${track.kind}: enabled=${track.enabled}, readyState=${track.readyState}, label=${track.label}`)
+            })
+        }
+    })
+}, 3000)
+
+// Stop monitoring: clearInterval(monitorTracks)</pre>
+
+            <h3>2. Check Peer Connection Stats</h3>
+            <pre>// Get first video element
+const video = document.querySelector('video')
+if (video && video.srcObject) {
+    const track = video.srcObject.getVideoTracks()[0]
+    if (track) {
+        const sender = video.srcObject.getTracks()[0]
+        // Log track info
+        console.log('Track Info:', {
+            kind: track.kind,
+            enabled: track.enabled,
+            readyState: track.readyState,
+            label: track.label
+        })
+    }
+}</pre>
+
+            <h3>3. Enable Verbose WebRTC Logging</h3>
+            <pre>// Enable debug logging
+localStorage.setItem('debug', 'socket.io-client:*')
+
+// Then reload the page</pre>
+
+            <h3>4. Check Ice Connection States</h3>
+            <pre>// This requires access to React context, run after page loads
+// Check Chrome DevTools > Application > React Components
+// Find MediaProvider and inspect peerConnections</pre>
+        </div>
+
+        <div class="debug-section">
+            <h2>🔍 Common Issues Checklist</h2>
+            <div>
+                <p><span class="status-indicator status-off"></span> Admin can't be heard by participants</p>
+                <ul>
+                    <li>Check: Console shows "isAudioEnabled: true" when creating offer?</li>
+                    <li>Check: Audio track shows "enabled=true" in logs?</li>
+                    <li>Check: Participant sees "Received remote track... kind: audio"?</li>
+                </ul>
+            </div>
+            <div>
+                <p><span class="status-indicator status-off"></span> Screen share not visible</p>
+                <ul>
+                    <li>Check: Console shows "Added screen track to peer... readyState=live"?</li>
+                    <li>Check: Screen share button is green?</li>
+                    <li>Check: Browser shows "Sharing screen" indicator?</li>
+                </ul>
+            </div>
+            <div>
+                <p><span class="status-indicator status-off"></span> Connection never establishes</p>
+                <ul>
+                    <li>Check: Console shows "Connection state... : connected"?</li>
+                    <li>Check: Console shows "ICE connection state... : connected"?</li>
+                    <li>Check: Firewall blocking WebRTC ports?</li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="debug-section">
+            <h2>📝 Test Procedure</h2>
+            <ol>
+                <li>Open two browser windows (one incognito)</li>
+                <li>Open DevTools console in both (F12)</li>
+                <li><strong>Window 1 (Admin)</strong>:
+                    <ul>
+                        <li>Join room "test123"</li>
+                        <li>Enable microphone (should turn blue)</li>
+                        <li>Start screen share (should turn green)</li>
+                        <li>Console should show: "Creating offer for..." with audio=true, screen=true</li>
+                    </ul>
+                </li>
+                <li><strong>Window 2 (Participant)</strong>:
+                    <ul>
+                        <li>Join same room "test123"</li>
+                        <li>Wait for admin to admit</li>
+                        <li>Console should show: "Received offer from..."</li>
+                        <li>Should hear admin's audio immediately</li>
+                        <li>Should see admin's screen share</li>
+                    </ul>
+                </li>
+                <li><strong>Verify</strong>:
+                    <ul>
+                        <li>Participant hears audio? ✓</li>
+                        <li>Participant sees screen? ✓</li>
+                        <li>Admin can mute/unmute and it works? ✓</li>
+                        <li>Screen share can be stopped and restarted? ✓</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <div class="debug-section">
+            <h2>🚀 Quick Actions</h2>
+            <button onclick="window.open('chrome://webrtc-internals', '_blank')">
+                Open Chrome WebRTC Internals
+            </button>
+            <button onclick="copyToClipboard(getDebugScript())">
+                Copy Debug Script
+            </button>
+            <button onclick="window.location.reload()">
+                Reload Page
+            </button>
+        </div>
+    </div>
+
+    <script>
+        function log(message, type = 'info') {
+            const output = document.getElementById('output')
+            const time = new Date().toLocaleTimeString()
+            const className = type
+            output.innerHTML += `<div class="${className}">[${time}] ${message}</div>`
+            output.scrollTop = output.scrollHeight
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = ''
+        }
+
+        function checkMediaState() {
+            log('Checking media state...', 'info')
+            
+            const videos = document.querySelectorAll('video')
+            if (videos.length === 0) {
+                log('No video elements found', 'warning')
+                return
+            }
+
+            videos.forEach((video, i) => {
+                log(`Video Element ${i}:`, 'success')
+                if (video.srcObject) {
+                    const tracks = video.srcObject.getTracks()
+                    tracks.forEach(track => {
+                        log(`  - ${track.kind}: enabled=${track.enabled}, ready=${track.readyState}, label=${track.label}`, 'info')
+                    })
+                } else {
+                    log('  No srcObject', 'warning')
+                }
+            })
+        }
+
+        function checkConnections() {
+            log('Checking RTCPeerConnection stats...', 'info')
+            log('Open Chrome DevTools > More Tools > WebRTC Internals for detailed stats', 'info')
+        }
+
+        function checkTracks() {
+            log('Checking all media tracks...', 'info')
+            
+            navigator.mediaDevices.enumerateDevices()
+                .then(devices => {
+                    const audioInputs = devices.filter(d => d.kind === 'audioinput')
+                    const videoInputs = devices.filter(d => d.kind === 'videoinput')
+                    
+                    log(`Found ${audioInputs.length} audio input(s)`, 'success')
+                    log(`Found ${videoInputs.length} video input(s)`, 'success')
+                    
+                    audioInputs.forEach((device, i) => {
+                        log(`  Audio ${i}: ${device.label || 'Unnamed'}`, 'info')
+                    })
+                    videoInputs.forEach((device, i) => {
+                        log(`  Video ${i}: ${device.label || 'Unnamed'}`, 'info')
+                    })
+                })
+                .catch(err => {
+                    log(`Error enumerating devices: ${err.message}`, 'error')
+                })
+        }
+
+        function getDebugScript() {
+            return `
+// WebRTC Debug Script for Code-Sync
+console.log('%c=== WebRTC Debug Mode ===', 'color: #00ffff; font-size: 16px; font-weight: bold');
+
+// Monitor tracks every 3 seconds
+const trackMonitor = setInterval(() => {
+    console.log('%c--- Track Status ---', 'color: #00ff00');
+    document.querySelectorAll('video').forEach((video, i) => {
+        if (video.srcObject) {
+            console.log(\`Video \${i}:\`);
+            video.srcObject.getTracks().forEach(track => {
+                const status = track.enabled ? '✅' : '❌';
+                console.log(\`  \${status} \${track.kind}: enabled=\${track.enabled}, ready=\${track.readyState}, label=\${track.label}\`);
+            });
+        }
+    });
+}, 3000);
+
+// Stop monitoring: clearInterval(trackMonitor)
+console.log('%cMonitoring started. Run clearInterval(trackMonitor) to stop.', 'color: #ffff00');
+`;
+        }
+
+        function copyToClipboard(text) {
+            navigator.clipboard.writeText(text).then(() => {
+                log('Debug script copied to clipboard!', 'success')
+            }).catch(err => {
+                log('Failed to copy: ' + err.message, 'error')
+            })
+        }
+
+        // Initial load message
+        window.onload = () => {
+            log('WebRTC Debug Helper loaded', 'success')
+            log('Use the buttons above to check your WebRTC state', 'info')
+        }
+    </script>
+</body>
+</html>

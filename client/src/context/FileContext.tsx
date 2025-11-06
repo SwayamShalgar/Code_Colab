@@ -40,7 +40,7 @@ export const useFileSystem = (): FileContextType => {
 
 function FileContextProvider({ children }: { children: ReactNode }) {
     const { socket } = useSocket()
-    const { setUsers, drawingData } = useAppContext()
+    const { setUsers, drawingData, setCurrentUser } = useAppContext()
 
     const [fileStructure, setFileStructure] =
         useState<FileSystemItem>(initialFileStructure)
@@ -632,24 +632,48 @@ function FileContextProvider({ children }: { children: ReactNode }) {
 
     const handleUserJoined = useCallback(
         ({ user }: { user: RemoteUser }) => {
-            toast.success(`${user.username} joined the room`)
+            const isSelf = user.socketId === socket.id
 
-            // Send the code and drawing data to the server
-            socket.emit(SocketEvent.SYNC_FILE_STRUCTURE, {
-                fileStructure,
-                openFiles,
-                activeFile,
-                socketId: user.socketId,
+            if (isSelf) {
+                setCurrentUser((prev) => ({
+                    ...prev,
+                    username: user.username,
+                    roomId: user.roomId,
+                    socketId: user.socketId,
+                    isAdmin: user.isAdmin,
+                }))
+            } else {
+                toast.success(`${user.username} joined the room`)
+
+                // Send the code and drawing data to the new user for initial sync
+                socket.emit(SocketEvent.SYNC_FILE_STRUCTURE, {
+                    fileStructure,
+                    openFiles,
+                    activeFile,
+                    socketId: user.socketId,
+                })
+
+                socket.emit(SocketEvent.SYNC_DRAWING, {
+                    drawingData,
+                    socketId: user.socketId,
+                })
+            }
+
+            // Update or insert the user without duplicating entries
+            setUsers((prev) => {
+                const next = [...prev]
+                const idx = next.findIndex((existing) => existing.socketId === user.socketId)
+
+                if (idx >= 0) {
+                    next[idx] = user
+                    return next
+                }
+
+                next.push(user)
+                return next
             })
-
-            socket.emit(SocketEvent.SYNC_DRAWING, {
-                drawingData,
-                socketId: user.socketId,
-            })
-
-            setUsers((prev) => [...prev, user])
         },
-        [activeFile, drawingData, fileStructure, openFiles, setUsers, socket],
+        [activeFile, drawingData, fileStructure, openFiles, setCurrentUser, setUsers, socket],
     )
 
     const handleFileStructureSync = useCallback(
@@ -743,7 +767,7 @@ function FileContextProvider({ children }: { children: ReactNode }) {
     )
 
     useEffect(() => {
-        socket.once(SocketEvent.SYNC_FILE_STRUCTURE, handleFileStructureSync)
+        socket.on(SocketEvent.SYNC_FILE_STRUCTURE, handleFileStructureSync)
         socket.on(SocketEvent.USER_JOINED, handleUserJoined)
         socket.on(SocketEvent.DIRECTORY_CREATED, handleDirCreated)
         socket.on(SocketEvent.DIRECTORY_UPDATED, handleDirUpdated)
@@ -755,7 +779,8 @@ function FileContextProvider({ children }: { children: ReactNode }) {
         socket.on(SocketEvent.FILE_DELETED, handleFileDeleted)
 
         return () => {
-            socket.off(SocketEvent.USER_JOINED)
+            socket.off(SocketEvent.SYNC_FILE_STRUCTURE, handleFileStructureSync)
+            socket.off(SocketEvent.USER_JOINED, handleUserJoined)
             socket.off(SocketEvent.DIRECTORY_CREATED)
             socket.off(SocketEvent.DIRECTORY_UPDATED)
             socket.off(SocketEvent.DIRECTORY_RENAMED)

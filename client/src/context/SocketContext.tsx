@@ -37,6 +37,7 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
         setCurrentUser,
         drawingData,
         setDrawingData,
+        setPendingUsers,
     } = useAppContext()
     const socket: Socket = useMemo(
         () =>
@@ -101,11 +102,48 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
         [setDrawingData],
     )
 
+    const handleAdmissionRequired = useCallback(() => {
+        toast.dismiss()
+        setStatus(USER_STATUS.WAITING_FOR_ADMISSION)
+    }, [setStatus])
+
+    const handleAdmissionRequest = useCallback(
+        ({ pendingUser }: { pendingUser: { username: string; socketId: string; roomId: string } }) => {
+            setPendingUsers((prev) => [...prev, pendingUser])
+        },
+        [setPendingUsers],
+    )
+
+    const handleUserAdmitted = useCallback(
+        ({ user, users }: { user: User; users: RemoteUser[] }) => {
+            setCurrentUser(user)
+            setUsers(users)
+            toast.dismiss()
+            toast.success("You have been admitted to the room!")
+            setStatus(USER_STATUS.JOINED)
+
+            if (users.length > 1) {
+                toast.loading("Syncing data, please wait...")
+            }
+        },
+        [setCurrentUser, setStatus, setUsers],
+    )
+
+    const handleUserRejected = useCallback(() => {
+        toast.dismiss()
+        toast.error("Your request to join was rejected by the admin")
+        setStatus(USER_STATUS.REJECTED)
+    }, [setStatus])
+
     useEffect(() => {
         socket.on("connect_error", handleError)
         socket.on("connect_failed", handleError)
         socket.on(SocketEvent.USERNAME_EXISTS, handleUsernameExist)
         socket.on(SocketEvent.JOIN_ACCEPTED, handleJoiningAccept)
+        socket.on(SocketEvent.ADMISSION_REQUIRED, handleAdmissionRequired)
+        socket.on(SocketEvent.ADMISSION_REQUEST, handleAdmissionRequest)
+        socket.on(SocketEvent.USER_ADMITTED, handleUserAdmitted)
+        socket.on(SocketEvent.USER_REJECTED, handleUserRejected)
         socket.on(SocketEvent.USER_DISCONNECTED, handleUserLeft)
         socket.on(SocketEvent.REQUEST_DRAWING, handleRequestDrawing)
         socket.on(SocketEvent.SYNC_DRAWING, handleDrawingSync)
@@ -115,6 +153,10 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
             socket.off("connect_failed")
             socket.off(SocketEvent.USERNAME_EXISTS)
             socket.off(SocketEvent.JOIN_ACCEPTED)
+            socket.off(SocketEvent.ADMISSION_REQUIRED)
+            socket.off(SocketEvent.ADMISSION_REQUEST)
+            socket.off(SocketEvent.USER_ADMITTED)
+            socket.off(SocketEvent.USER_REJECTED)
             socket.off(SocketEvent.USER_DISCONNECTED)
             socket.off(SocketEvent.REQUEST_DRAWING)
             socket.off(SocketEvent.SYNC_DRAWING)
@@ -126,6 +168,10 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
         handleRequestDrawing,
         handleUserLeft,
         handleUsernameExist,
+        handleAdmissionRequired,
+        handleAdmissionRequest,
+        handleUserAdmitted,
+        handleUserRejected,
         setUsers,
         socket,
     ])

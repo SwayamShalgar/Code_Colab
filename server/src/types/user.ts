@@ -11,6 +11,13 @@ interface User {
 	typing: boolean
 	currentFile: string | null
 	socketId: string
+	isAdmin: boolean
 }
 
-export { USER_CONNECTION_STATUS, User }
+interface PendingUser {
+	username: string
+	socketId: string
+	roomId: string
+}
+
+export { USER_CONNECTION_STATUS, User, PendingUser }

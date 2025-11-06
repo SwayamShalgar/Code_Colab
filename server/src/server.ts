@@ -3,7 +3,7 @@ import dotenv from "dotenv"
 import http from "http"
 import cors from "cors"
 import { SocketEvent, SocketId } from "./types/socket"
-import { USER_CONNECTION_STATUS, User } from "./types/user"
+import { USER_CONNECTION_STATUS, User, PendingUser } from "./types/user"
 import { Server } from "socket.io"
 import path from "path"
 
@@ -27,6 +27,8 @@ const io = new Server(server, {
 })
 
 let userSocketMap: User[] = []
+let pendingUsers: PendingUser[] = []
+let roomAdmins: Map<string, string> = new Map() // roomId -> adminSocketId
 
 // Function to get all users in a room
 function getUsersInRoom(roomId: string): User[] {
@@ -67,30 +69,130 @@ io.on("connection", (socket) => {
 			return
 		}
 
-		const user = {
-			username,
-			roomId,
-			status: USER_CONNECTION_STATUS.ONLINE,
-			cursorPosition: 0,
-			typing: false,
-			socketId: socket.id,
-			currentFile: null,
+		const existingUsers = getUsersInRoom(roomId)
+		const isFirstUser = existingUsers.length === 0
+		
+		// If first user, make them admin and let them join directly
+		if (isFirstUser) {
+			roomAdmins.set(roomId, socket.id)
+			const user: User = {
+				username,
+				roomId,
+				status: USER_CONNECTION_STATUS.ONLINE,
+				cursorPosition: 0,
+				typing: false,
+				socketId: socket.id,
+				currentFile: null,
+				isAdmin: true,
+			}
+			userSocketMap.push(user)
+			socket.join(roomId)
+			const users = getUsersInRoom(roomId)
+			io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users })
+		} else {
+			// Not first user - need admin approval
+			const pendingUser: PendingUser = {
+				username,
+				socketId: socket.id,
+				roomId,
+			}
+			pendingUsers.push(pendingUser)
+			
+			// Notify user they need to wait for admission
+			io.to(socket.id).emit(SocketEvent.ADMISSION_REQUIRED)
+			
+			// Notify admin about pending user
+			const adminSocketId = roomAdmins.get(roomId)
+			if (adminSocketId) {
+				io.to(adminSocketId).emit(SocketEvent.ADMISSION_REQUEST, {
+					pendingUser,
+				})
+			}
 		}
-		userSocketMap.push(user)
-		socket.join(roomId)
-		socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
-		const users = getUsersInRoom(roomId)
-		io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users })
+	})
+
+	// Handle admin's admission response
+	socket.on(SocketEvent.ADMISSION_RESPONSE, ({ socketId, approved, roomId }) => {
+		const pendingUser = pendingUsers.find((u) => u.socketId === socketId)
+		
+		if (!pendingUser) return
+
+		// Remove from pending list
+		pendingUsers = pendingUsers.filter((u) => u.socketId !== socketId)
+
+		if (approved) {
+			// Admit the user
+			const user: User = {
+				username: pendingUser.username,
+				roomId: pendingUser.roomId,
+				status: USER_CONNECTION_STATUS.ONLINE,
+				cursorPosition: 0,
+				typing: false,
+				socketId: pendingUser.socketId,
+				currentFile: null,
+				isAdmin: false,
+			}
+			userSocketMap.push(user)
+			
+			const userSocket = io.sockets.sockets.get(socketId)
+			if (userSocket) {
+				userSocket.join(roomId)
+			}
+			
+			// Notify all users about new member
+			socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
+			
+			// Send acceptance to the user
+			const users = getUsersInRoom(roomId)
+			io.to(socketId).emit(SocketEvent.USER_ADMITTED, { user, users })
+		} else {
+			// Reject the user
+			io.to(socketId).emit(SocketEvent.USER_REJECTED)
+		}
 	})
 
 	socket.on("disconnecting", () => {
 		const user = getUserBySocketId(socket.id)
+		
+		// Remove from pending users if they were waiting
+		pendingUsers = pendingUsers.filter((u) => u.socketId !== socket.id)
+		
 		if (!user) return
+		
 		const roomId = user.roomId
+		const wasAdmin = user.isAdmin
+		
 		socket.broadcast
 			.to(roomId)
 			.emit(SocketEvent.USER_DISCONNECTED, { user })
+		
 		userSocketMap = userSocketMap.filter((u) => u.socketId !== socket.id)
+		
+		// If admin left, assign new admin (first user in room)
+		if (wasAdmin && roomAdmins.get(roomId) === socket.id) {
+			const remainingUsers = getUsersInRoom(roomId)
+			if (remainingUsers.length > 0) {
+				const newAdmin = remainingUsers[0]
+				roomAdmins.set(roomId, newAdmin.socketId)
+				
+				// Update user to be admin
+				userSocketMap = userSocketMap.map((u) => {
+					if (u.socketId === newAdmin.socketId) {
+						return { ...u, isAdmin: true }
+					}
+					return u
+				})
+				
+				// Notify new admin
+				io.to(newAdmin.socketId).emit(SocketEvent.USER_JOINED, {
+					user: { ...newAdmin, isAdmin: true },
+				})
+			} else {
+				// No users left, remove room from admins
+				roomAdmins.delete(roomId)
+			}
+		}
+		
 		socket.leave(roomId)
 	})
 
