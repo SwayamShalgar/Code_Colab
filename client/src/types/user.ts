@@ -7,6 +7,7 @@ interface User {
     username: string
     roomId: string
     isAdmin?: boolean
+    isCollaborative?: boolean
 }
 
 interface RemoteUser extends User {
@@ -16,12 +17,7 @@ interface RemoteUser extends User {
     currentFile: string
     socketId: string
     isAdmin: boolean
-}
-
-interface PendingUser {
-    username: string
-    socketId: string
-    roomId: string
+    isCollaborative: boolean
 }
 
 enum USER_STATUS {
@@ -30,9 +26,9 @@ enum USER_STATUS {
     ATTEMPTING_JOIN = "attempting-join",
     WAITING_FOR_ADMISSION = "waiting-for-admission",
     JOINED = "joined",
-    REJECTED = "rejected",
     CONNECTION_FAILED = "connection-failed",
     DISCONNECTED = "disconnected",
+    REJECTED = "rejected",
 }
 
-export { USER_CONNECTION_STATUS, USER_STATUS, RemoteUser, User, PendingUser }
+export { USER_CONNECTION_STATUS, USER_STATUS, RemoteUser, User }

@@ -12,12 +12,7 @@ interface User {
 	currentFile: string | null
 	socketId: string
 	isAdmin: boolean
+	isCollaborative: boolean
 }
 
-interface PendingUser {
-	username: string
-	socketId: string
-	roomId: string
-}
-
-export { USER_CONNECTION_STATUS, User, PendingUser }
+export { USER_CONNECTION_STATUS, User }

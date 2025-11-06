@@ -175,31 +175,29 @@ function FilesView() {
 
     return (
         <div
-            className="flex select-none flex-col gap-2 px-4 py-4"
+            className="flex select-none flex-col gap-1 px-4 py-2"
             style={{ height: viewHeight, maxHeight: viewHeight }}
         >
             <FileStructureView />
             <div
-                className={cn(`flex min-h-fit flex-col justify-end pt-4 gap-2 border-t border-neutral-200 dark:border-neutral-800`, {
+                className={cn(`flex min-h-fit flex-col justify-end pt-2`, {
                     hidden: minHeightReached,
                 })}
             >
+                <hr />
                 <button
-                    className="flex w-full items-center justify-start rounded-lg p-3 transition-all duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-98 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-700 dark:text-neutral-300"
+                    className="mt-2 flex w-full justify-start rounded-md p-2 transition-all hover:bg-darkHover"
                     onClick={handleOpenDirectory}
                     disabled={isLoading}
                 >
-                    <TbFileUpload className="mr-3" size={20} />
-                    <span className="font-medium text-sm">
-                        {isLoading ? "Loading..." : "Open File/Folder"}
-                    </span>
+                    <TbFileUpload className="mr-2" size={24} />
+                    {isLoading ? "Loading..." : "Open File/Folder"}
                 </button>
                 <button
-                    className="flex w-full items-center justify-start rounded-lg p-3 transition-all duration-200 hover:bg-neutral-100 dark:hover:bg-neutral-800 active:scale-98 text-neutral-700 dark:text-neutral-300"
+                    className="flex w-full justify-start rounded-md p-2 transition-all hover:bg-darkHover"
                     onClick={downloadFilesAndFolders}
                 >
-                    <BiArchiveIn className="mr-3" size={20} />
-                    <span className="font-medium text-sm">Download Code</span>
+                    <BiArchiveIn className="mr-2" size={22} /> Download Code
                 </button>
             </div>
         </div>

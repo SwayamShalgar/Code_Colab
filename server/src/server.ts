@@ -3,7 +3,7 @@ import dotenv from "dotenv"
 import http from "http"
 import cors from "cors"
 import { SocketEvent, SocketId } from "./types/socket"
-import { USER_CONNECTION_STATUS, User, PendingUser } from "./types/user"
+import { USER_CONNECTION_STATUS, User } from "./types/user"
 import { Server } from "socket.io"
 import path from "path"
 
@@ -27,12 +27,25 @@ const io = new Server(server, {
 })
 
 let userSocketMap: User[] = []
-let pendingUsers: PendingUser[] = []
-let roomAdmins: Map<string, string> = new Map() // roomId -> adminSocketId
+let pendingUsers: Map<string, { username: string; roomId: string; socketId: string }> = new Map()
+let roomSettings: Map<string, { isCollaborative: boolean }> = new Map()
 
 // Function to get all users in a room
 function getUsersInRoom(roomId: string): User[] {
 	return userSocketMap.filter((user) => user.roomId == roomId)
+}
+
+// Function to check if user is admin in a room
+function isAdmin(socketId: SocketId, roomId: string): boolean {
+	const user = userSocketMap.find(
+		(user) => user.socketId === socketId && user.roomId === roomId
+	)
+	return user?.isAdmin ?? false
+}
+
+// Function to get room collaboration setting
+function isRoomCollaborative(roomId: string): boolean {
+	return roomSettings.get(roomId)?.isCollaborative ?? true
 }
 
 // Function to get room id by socket id
@@ -59,7 +72,7 @@ function getUserBySocketId(socketId: SocketId): User | null {
 
 io.on("connection", (socket) => {
 	// Handle user actions
-	socket.on(SocketEvent.JOIN_REQUEST, ({ roomId, username }) => {
+	socket.on(SocketEvent.JOIN_REQUEST, ({ roomId, username, isCollaborative }) => {
 		// Check is username exist in the room
 		const isUsernameExist = getUsersInRoom(roomId).filter(
 			(u) => u.username === username
@@ -71,11 +84,15 @@ io.on("connection", (socket) => {
 
 		const existingUsers = getUsersInRoom(roomId)
 		const isFirstUser = existingUsers.length === 0
-		
-		// If first user, make them admin and let them join directly
+
+		// If first user, make them admin and join directly
 		if (isFirstUser) {
-			roomAdmins.set(roomId, socket.id)
-			const user: User = {
+			// Set room collaboration mode (default to true if not provided)
+			roomSettings.set(roomId, { 
+				isCollaborative: isCollaborative ?? true 
+			})
+			
+			const user = {
 				username,
 				roomId,
 				status: USER_CONNECTION_STATUS.ONLINE,
@@ -84,45 +101,44 @@ io.on("connection", (socket) => {
 				socketId: socket.id,
 				currentFile: null,
 				isAdmin: true,
+				isCollaborative: isCollaborative ?? true,
 			}
 			userSocketMap.push(user)
 			socket.join(roomId)
 			const users = getUsersInRoom(roomId)
 			io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users })
 		} else {
-			// Not first user - need admin approval
-			const pendingUser: PendingUser = {
-				username,
-				socketId: socket.id,
-				roomId,
-			}
-			pendingUsers.push(pendingUser)
-			
-			// Notify user they need to wait for admission
-			io.to(socket.id).emit(SocketEvent.ADMISSION_REQUIRED)
-			
-			// Notify admin about pending user
-			const adminSocketId = roomAdmins.get(roomId)
-			if (adminSocketId) {
-				io.to(adminSocketId).emit(SocketEvent.ADMISSION_REQUEST, {
-					pendingUser,
+			// Store pending user and notify them they're waiting
+			pendingUsers.set(socket.id, { username, roomId, socketId: socket.id })
+			io.to(socket.id).emit(SocketEvent.WAITING_FOR_ADMISSION)
+
+			// Notify admin about the new join request
+			const admin = existingUsers.find((u) => u.isAdmin)
+			if (admin) {
+				io.to(admin.socketId).emit(SocketEvent.ADMISSION_REQUEST, {
+					username,
+					socketId: socket.id,
 				})
 			}
 		}
 	})
 
-	// Handle admin's admission response
-	socket.on(SocketEvent.ADMISSION_RESPONSE, ({ socketId, approved, roomId }) => {
-		const pendingUser = pendingUsers.find((u) => u.socketId === socketId)
-		
+	// Handle admission response from admin
+	socket.on(SocketEvent.ADMISSION_RESPONSE, ({ socketId, username, accepted }) => {
+		const pendingUser = pendingUsers.get(socketId)
 		if (!pendingUser) return
 
-		// Remove from pending list
-		pendingUsers = pendingUsers.filter((u) => u.socketId !== socketId)
+		const roomId = pendingUser.roomId
 
-		if (approved) {
-			// Admit the user
-			const user: User = {
+		// Verify the requester is admin
+		if (!isAdmin(socket.id, roomId)) {
+			return
+		}
+
+		if (accepted) {
+			const roomCollaborative = isRoomCollaborative(roomId)
+			
+			const user = {
 				username: pendingUser.username,
 				roomId: pendingUser.roomId,
 				status: USER_CONNECTION_STATUS.ONLINE,
@@ -131,69 +147,52 @@ io.on("connection", (socket) => {
 				socketId: pendingUser.socketId,
 				currentFile: null,
 				isAdmin: false,
+				isCollaborative: roomCollaborative,
 			}
 			userSocketMap.push(user)
 			
 			const userSocket = io.sockets.sockets.get(socketId)
 			if (userSocket) {
 				userSocket.join(roomId)
+				
+				// Notify all users in the room (including admin) about the new user
+				// Use the new user's socket to broadcast to ensure they're in the room
+				userSocket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
+				
+				// Send the current users list to the newly joined user
+				const users = getUsersInRoom(roomId)
+				userSocket.emit(SocketEvent.JOIN_ACCEPTED, { user, users })
+				
+				// Also notify the new user about themselves joining
+				userSocket.emit(SocketEvent.USER_JOINED, { user })
 			}
-			
-			// Notify all users about new member
-			socket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
-			
-			// Send acceptance to the user
-			const users = getUsersInRoom(roomId)
-			io.to(socketId).emit(SocketEvent.USER_ADMITTED, { user, users })
 		} else {
-			// Reject the user
 			io.to(socketId).emit(SocketEvent.USER_REJECTED)
 		}
+
+		pendingUsers.delete(socketId)
 	})
 
 	socket.on("disconnecting", () => {
+		// Check if user is in pending list
+		if (pendingUsers.has(socket.id)) {
+			pendingUsers.delete(socket.id)
+			return
+		}
+
 		const user = getUserBySocketId(socket.id)
-		
-		// Remove from pending users if they were waiting
-		pendingUsers = pendingUsers.filter((u) => u.socketId !== socket.id)
-		
 		if (!user) return
-		
 		const roomId = user.roomId
-		const wasAdmin = user.isAdmin
-		
 		socket.broadcast
 			.to(roomId)
 			.emit(SocketEvent.USER_DISCONNECTED, { user })
-		
 		userSocketMap = userSocketMap.filter((u) => u.socketId !== socket.id)
-		
-		// If admin left, assign new admin (first user in room)
-		if (wasAdmin && roomAdmins.get(roomId) === socket.id) {
-			const remainingUsers = getUsersInRoom(roomId)
-			if (remainingUsers.length > 0) {
-				const newAdmin = remainingUsers[0]
-				roomAdmins.set(roomId, newAdmin.socketId)
-				
-				// Update user to be admin
-				userSocketMap = userSocketMap.map((u) => {
-					if (u.socketId === newAdmin.socketId) {
-						return { ...u, isAdmin: true }
-					}
-					return u
-				})
-				
-				// Notify new admin
-				io.to(newAdmin.socketId).emit(SocketEvent.USER_JOINED, {
-					user: { ...newAdmin, isAdmin: true },
-				})
-			} else {
-				// No users left, remove room from admins
-				roomAdmins.delete(roomId)
-			}
-		}
-		
 		socket.leave(roomId)
+		
+		// Clean up room settings if no users left
+		if (getUsersInRoom(roomId).length === 0) {
+			roomSettings.delete(roomId)
+		}
 	})
 
 	// Handle file actions
@@ -213,6 +212,14 @@ io.on("connection", (socket) => {
 		({ parentDirId, newDirectory }) => {
 			const roomId = getRoomId(socket.id)
 			if (!roomId) return
+			
+			// Check if room is collaborative
+			const roomCollaborative = isRoomCollaborative(roomId)
+			if (!roomCollaborative) {
+				// In non-collaborative mode, don't broadcast directory creation
+				return
+			}
+			
 			socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_CREATED, {
 				parentDirId,
 				newDirectory,
@@ -223,6 +230,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.DIRECTORY_UPDATED, ({ dirId, children }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
+		
+		// Check if room is collaborative
+		const roomCollaborative = isRoomCollaborative(roomId)
+		if (!roomCollaborative) {
+			// In non-collaborative mode, don't broadcast directory updates
+			return
+		}
+		
 		socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_UPDATED, {
 			dirId,
 			children,
@@ -232,6 +247,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.DIRECTORY_RENAMED, ({ dirId, newName }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
+		
+		// Check if room is collaborative
+		const roomCollaborative = isRoomCollaborative(roomId)
+		if (!roomCollaborative) {
+			// In non-collaborative mode, don't broadcast directory rename
+			return
+		}
+		
 		socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_RENAMED, {
 			dirId,
 			newName,
@@ -241,6 +264,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.DIRECTORY_DELETED, ({ dirId }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
+		
+		// Check if room is collaborative
+		const roomCollaborative = isRoomCollaborative(roomId)
+		if (!roomCollaborative) {
+			// In non-collaborative mode, don't broadcast directory deletion
+			return
+		}
+		
 		socket.broadcast
 			.to(roomId)
 			.emit(SocketEvent.DIRECTORY_DELETED, { dirId })
@@ -249,6 +280,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.FILE_CREATED, ({ parentDirId, newFile }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
+		
+		// Check if room is collaborative
+		const roomCollaborative = isRoomCollaborative(roomId)
+		if (!roomCollaborative) {
+			// In non-collaborative mode, don't broadcast file creation
+			return
+		}
+		
 		socket.broadcast
 			.to(roomId)
 			.emit(SocketEvent.FILE_CREATED, { parentDirId, newFile })
@@ -257,6 +296,18 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.FILE_UPDATED, ({ fileId, newContent }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
+		
+		const user = getUserBySocketId(socket.id)
+		if (!user) return
+		
+		// Check if room is collaborative
+		const roomCollaborative = isRoomCollaborative(roomId)
+		if (!roomCollaborative) {
+			// In non-collaborative mode, don't broadcast changes to others
+			return
+		}
+		
+		// Only broadcast in collaborative mode
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_UPDATED, {
 			fileId,
 			newContent,
@@ -266,6 +317,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.FILE_RENAMED, ({ fileId, newName }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
+		
+		// Check if room is collaborative
+		const roomCollaborative = isRoomCollaborative(roomId)
+		if (!roomCollaborative) {
+			// In non-collaborative mode, don't broadcast file rename
+			return
+		}
+		
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_RENAMED, {
 			fileId,
 			newName,
@@ -275,6 +334,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.FILE_DELETED, ({ fileId }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
+		
+		// Check if room is collaborative
+		const roomCollaborative = isRoomCollaborative(roomId)
+		if (!roomCollaborative) {
+			// In non-collaborative mode, don't broadcast file deletion
+			return
+		}
+		
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_DELETED, { fileId })
 	})
 

@@ -1,5 +1,5 @@
 import { StoreSnapshot, TLRecord } from "@tldraw/tldraw"
-import { RemoteUser, User, USER_STATUS, PendingUser } from "./user"
+import { RemoteUser, User, USER_STATUS } from "./user"
 
 type DrawingData = StoreSnapshot<TLRecord> | null
 
@@ -21,8 +21,6 @@ interface AppContext {
     setActivityState: (state: ACTIVITY_STATE) => void
     drawingData: DrawingData
     setDrawingData: (data: DrawingData) => void
-    pendingUsers: PendingUser[]
-    setPendingUsers: (users: PendingUser[] | ((users: PendingUser[]) => PendingUser[])) => void
 }
 
 export { ACTIVITY_STATE }

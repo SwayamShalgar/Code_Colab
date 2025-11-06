@@ -40,7 +40,7 @@ export const useFileSystem = (): FileContextType => {
 
 function FileContextProvider({ children }: { children: ReactNode }) {
     const { socket } = useSocket()
-    const { setUsers, drawingData, setCurrentUser } = useAppContext()
+    const { setUsers, drawingData, setCurrentUser, currentUser } = useAppContext()
 
     const [fileStructure, setFileStructure] =
         useState<FileSystemItem>(initialFileStructure)
@@ -635,13 +635,16 @@ function FileContextProvider({ children }: { children: ReactNode }) {
             const isSelf = user.socketId === socket.id
 
             if (isSelf) {
-                setCurrentUser((prev) => ({
-                    ...prev,
+                setCurrentUser({
+                    ...currentUser,
                     username: user.username,
                     roomId: user.roomId,
-                    socketId: user.socketId,
                     isAdmin: user.isAdmin,
-                }))
+                    isCollaborative: user.isCollaborative,
+                })
+                
+                // Request file structure and drawing from other users
+                socket.emit(SocketEvent.REQUEST_DRAWING)
             } else {
                 toast.success(`${user.username} joined the room`)
 
@@ -673,7 +676,7 @@ function FileContextProvider({ children }: { children: ReactNode }) {
                 return next
             })
         },
-        [activeFile, drawingData, fileStructure, openFiles, setCurrentUser, setUsers, socket],
+        [activeFile, currentUser, drawingData, fileStructure, openFiles, setCurrentUser, setUsers, socket],
     )
 
     const handleFileStructureSync = useCallback(
@@ -689,7 +692,9 @@ function FileContextProvider({ children }: { children: ReactNode }) {
             setFileStructure(fileStructure)
             setOpenFiles(openFiles)
             setActiveFile(activeFile)
+            // Dismiss any loading toasts (including "Syncing data" toast)
             toast.dismiss()
+            toast.success("Synced successfully!")
         },
         [],
     )

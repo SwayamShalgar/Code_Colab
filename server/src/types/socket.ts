@@ -5,11 +5,6 @@ type SocketId = string
 enum SocketEvent {
 	JOIN_REQUEST = "join-request",
 	JOIN_ACCEPTED = "join-accepted",
-	ADMISSION_REQUIRED = "admission-required",
-	ADMISSION_REQUEST = "admission-request",
-	ADMISSION_RESPONSE = "admission-response",
-	USER_ADMITTED = "user-admitted",
-	USER_REJECTED = "user-rejected",
 	USER_JOINED = "user-joined",
 	USER_DISCONNECTED = "user-disconnected",
 	SYNC_FILE_STRUCTURE = "sync-file-structure",
@@ -31,6 +26,10 @@ enum SocketEvent {
 	REQUEST_DRAWING = "request-drawing",
 	SYNC_DRAWING = "sync-drawing",
 	DRAWING_UPDATE = "drawing-update",
+	WAITING_FOR_ADMISSION = "waiting-for-admission",
+	ADMISSION_REQUEST = "admission-request",
+	ADMISSION_RESPONSE = "admission-response",
+	USER_REJECTED = "user-rejected",
 }
 
 interface SocketContext {

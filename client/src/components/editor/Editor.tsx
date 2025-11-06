@@ -10,7 +10,6 @@ import { SocketEvent } from "@/types/socket"
 import { color } from "@uiw/codemirror-extensions-color"
 import { hyperLink } from "@uiw/codemirror-extensions-hyper-link"
 import { LanguageName, loadLanguage } from "@uiw/codemirror-extensions-langs"
-import { lineNumbers } from "@codemirror/view"
 import CodeMirror, {
     Extension,
     ViewUpdate,
@@ -57,7 +56,6 @@ function Editor() {
 
     useEffect(() => {
         const extensions = [
-            lineNumbers(),
             color,
             hyperLink,
             tooltipField(filteredUsers),
@@ -80,19 +78,26 @@ function Editor() {
     }, [filteredUsers, language])
 
     return (
-        <CodeMirror
-            theme={editorThemes[theme]}
-            onChange={onCodeChange}
-            value={activeFile?.content}
-            extensions={extensions}
-            minHeight="100%"
-            maxWidth="100vw"
-            style={{
-                fontSize: fontSize + "px",
-                height: viewHeight,
-                position: "relative",
-            }}
-        />
+        <>
+            {currentUser.isCollaborative === false && (
+                <div className="bg-blue-600 px-4 py-2 text-center text-sm font-medium text-white">
+                    ℹ️ Independent Mode: Your changes are private and won't affect other users
+                </div>
+            )}
+            <CodeMirror
+                theme={editorThemes[theme]}
+                onChange={onCodeChange}
+                value={activeFile?.content}
+                extensions={extensions}
+                minHeight="100%"
+                maxWidth="100vw"
+                style={{
+                    fontSize: fontSize + "px",
+                    height: viewHeight,
+                    position: "relative",
+                }}
+            />
+        </>
     )
 }
 

@@ -1,63 +1,43 @@
-/**
- * RejectedPage - Screen shown when user's join request is rejected
- * 
- * Features:
- * - Clear rejection message
- * - Option to return to home
- */
-
-import { Card, Button } from "@/components/ui"
 import { useNavigate } from "react-router-dom"
-import { IoCloseCircleOutline } from "react-icons/io5"
 
-const RejectedPage = () => {
+function RejectedPage() {
     const navigate = useNavigate()
 
-    const handleGoHome = () => {
+    const gotoHomePage = () => {
         navigate("/")
     }
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-neutral-50 via-white to-danger-50 dark:from-neutral-950 dark:via-neutral-900 dark:to-neutral-900 p-4">
-            {/* Decorative background elements */}
-            <div className="absolute inset-0 overflow-hidden pointer-events-none">
-                <div className="absolute -top-40 -right-40 w-80 h-80 bg-danger-200 dark:bg-danger-900/20 rounded-full blur-3xl opacity-50"></div>
-                <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-danger-200 dark:bg-danger-900/20 rounded-full blur-3xl opacity-50"></div>
-            </div>
-
-            <Card variant="elevated" className="w-full max-w-md relative z-10">
-                <Card.Body className="space-y-6 text-center py-8">
-                    {/* Icon */}
-                    <div className="flex justify-center">
-                        <div className="flex items-center justify-center w-20 h-20 rounded-full bg-danger-100 dark:bg-danger-900/30">
-                            <IoCloseCircleOutline className="text-5xl text-danger-600 dark:text-danger-400" />
-                        </div>
-                    </div>
-
-                    {/* Title and Message */}
-                    <div className="space-y-2">
-                        <h1 className="text-2xl font-semibold text-neutral-900 dark:text-neutral-100">
-                            Request Rejected
-                        </h1>
-                        <p className="text-neutral-600 dark:text-neutral-400">
-                            The room admin has declined your request to join this session.
-                        </p>
-                        <p className="text-sm text-neutral-500 dark:text-neutral-500">
-                            You may try joining a different room or create your own.
-                        </p>
-                    </div>
-
-                    {/* Go Home Button */}
-                    <Button
-                        variant="primary"
-                        size="lg"
-                        onClick={handleGoHome}
-                        isFullWidth
+        <div className="flex h-screen min-h-screen flex-col items-center justify-center gap-6 px-4 text-center">
+            <div className="flex flex-col items-center gap-4">
+                <div className="flex h-16 w-16 items-center justify-center rounded-full bg-red-500/20">
+                    <svg
+                        className="h-10 w-10 text-red-500"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
                     >
-                        Return to Home
-                    </Button>
-                </Card.Body>
-            </Card>
+                        <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M6 18L18 6M6 6l12 12"
+                        />
+                    </svg>
+                </div>
+                <h2 className="text-2xl font-bold text-white">
+                    Access Denied
+                </h2>
+                <p className="text-lg text-slate-300">
+                    Your request to join this room was rejected by the admin.
+                </p>
+                <button
+                    className="mt-4 rounded-md bg-primary px-8 py-2 font-bold text-black transition-colors hover:bg-primary/90"
+                    onClick={gotoHomePage}
+                >
+                    Go to HomePage
+                </button>
+            </div>
         </div>
     )
 }
