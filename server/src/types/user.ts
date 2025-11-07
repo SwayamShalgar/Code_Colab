@@ -15,4 +15,14 @@ interface User {
 	isCollaborative: boolean
 }
 
-export { USER_CONNECTION_STATUS, User }
+interface Task {
+	id: string
+	title: string
+	description: string
+	testCases: Array<{
+		input: string
+		expectedOutput: string
+	}>
+}
+
+export { USER_CONNECTION_STATUS, User, Task }

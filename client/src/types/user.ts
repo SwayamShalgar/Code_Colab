@@ -8,6 +8,15 @@ interface User {
     roomId: string
     isAdmin?: boolean
     isCollaborative?: boolean
+    tasks?: Array<{
+        id: string
+        title: string
+        description: string
+        testCases: Array<{
+            input: string
+            expectedOutput: string
+        }>
+    }>
 }
 
 interface RemoteUser extends User {

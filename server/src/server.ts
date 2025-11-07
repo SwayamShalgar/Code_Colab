@@ -3,7 +3,7 @@ import dotenv from "dotenv"
 import http from "http"
 import cors from "cors"
 import { SocketEvent, SocketId } from "./types/socket"
-import { USER_CONNECTION_STATUS, User } from "./types/user"
+import { USER_CONNECTION_STATUS, User, Task } from "./types/user"
 import { Server } from "socket.io"
 import path from "path"
 
@@ -28,7 +28,7 @@ const io = new Server(server, {
 
 let userSocketMap: User[] = []
 let pendingUsers: Map<string, { username: string; roomId: string; socketId: string }> = new Map()
-let roomSettings: Map<string, { isCollaborative: boolean }> = new Map()
+let roomSettings: Map<string, { isCollaborative: boolean; tasks?: Task[] }> = new Map()
 
 // Function to get all users in a room
 function getUsersInRoom(roomId: string): User[] {
@@ -46,6 +46,11 @@ function isAdmin(socketId: SocketId, roomId: string): boolean {
 // Function to get room collaboration setting
 function isRoomCollaborative(roomId: string): boolean {
 	return roomSettings.get(roomId)?.isCollaborative ?? true
+}
+
+// Function to get room tasks
+function getRoomTasks(roomId: string): Task[] | undefined {
+	return roomSettings.get(roomId)?.tasks
 }
 
 // Function to get room id by socket id
@@ -72,7 +77,7 @@ function getUserBySocketId(socketId: SocketId): User | null {
 
 io.on("connection", (socket) => {
 	// Handle user actions
-	socket.on(SocketEvent.JOIN_REQUEST, ({ roomId, username, isCollaborative }) => {
+	socket.on(SocketEvent.JOIN_REQUEST, ({ roomId, username, isCollaborative, tasks }) => {
 		// Check is username exist in the room
 		const isUsernameExist = getUsersInRoom(roomId).filter(
 			(u) => u.username === username
@@ -87,9 +92,10 @@ io.on("connection", (socket) => {
 
 		// If first user, make them admin and join directly
 		if (isFirstUser) {
-			// Set room collaboration mode (default to true if not provided)
+			// Set room collaboration mode and tasks (default to true if not provided)
 			roomSettings.set(roomId, { 
-				isCollaborative: isCollaborative ?? true 
+				isCollaborative: isCollaborative ?? true,
+				tasks: tasks || undefined
 			})
 			
 			const user = {
@@ -106,7 +112,8 @@ io.on("connection", (socket) => {
 			userSocketMap.push(user)
 			socket.join(roomId)
 			const users = getUsersInRoom(roomId)
-			io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users })
+			const roomTasks = getRoomTasks(roomId)
+			io.to(socket.id).emit(SocketEvent.JOIN_ACCEPTED, { user, users, tasks: roomTasks })
 		} else {
 			// Store pending user and notify them they're waiting
 			pendingUsers.set(socket.id, { username, roomId, socketId: socket.id })
@@ -159,9 +166,10 @@ io.on("connection", (socket) => {
 				// Use the new user's socket to broadcast to ensure they're in the room
 				userSocket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
 				
-				// Send the current users list to the newly joined user
+				// Send the current users list and tasks to the newly joined user
 				const users = getUsersInRoom(roomId)
-				userSocket.emit(SocketEvent.JOIN_ACCEPTED, { user, users })
+				const roomTasks = getRoomTasks(roomId)
+				userSocket.emit(SocketEvent.JOIN_ACCEPTED, { user, users, tasks: roomTasks })
 				
 				// Also notify the new user about themselves joining
 				userSocket.emit(SocketEvent.USER_JOINED, { user })

@@ -57,6 +57,10 @@ function Sidebar() {
                     icon={viewIcons[VIEWS.FILES]}
                 />
                 <SidebarButton
+                    viewName={VIEWS.TASKS}
+                    icon={viewIcons[VIEWS.TASKS]}
+                />
+                <SidebarButton
                     viewName={VIEWS.CHATS}
                     icon={viewIcons[VIEWS.CHATS]}
                 />

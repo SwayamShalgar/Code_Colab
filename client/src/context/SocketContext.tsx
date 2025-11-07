@@ -78,8 +78,11 @@ const SocketProvider = ({ children }: { children: ReactNode }) => {
     }, [setStatus])
 
     const handleJoiningAccept = useCallback(
-        ({ user, users }: { user: User; users: RemoteUser[] }) => {
-            setCurrentUser(user)
+        ({ user, users, tasks }: { user: User; users: RemoteUser[]; tasks?: User["tasks"] }) => {
+            setCurrentUser({
+                ...user,
+                tasks: tasks
+            })
             setUsers(users)
             toast.dismiss()
             setStatus(USER_STATUS.JOINED)

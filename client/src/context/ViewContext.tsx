@@ -3,6 +3,7 @@ import CopilotView from "@/components/sidebar/sidebar-views/CopilotView"
 import FilesView from "@/components/sidebar/sidebar-views/FilesView"
 import RunView from "@/components/sidebar/sidebar-views/RunView"
 import SettingsView from "@/components/sidebar/sidebar-views/SettingsView"
+import TasksView from "@/components/sidebar/sidebar-views/TasksView"
 import UsersView from "@/components/sidebar/sidebar-views/UsersView"
 import useWindowDimensions from "@/hooks/useWindowDimensions"
 import { VIEWS, ViewContext as ViewContextType } from "@/types/view"
@@ -10,6 +11,7 @@ import { ReactNode, createContext, useContext, useState } from "react"
 import { IoSettingsOutline } from "react-icons/io5"
 import { LuFiles, LuSparkles } from "react-icons/lu"
 import { PiChats, PiPlay, PiUsers } from "react-icons/pi"
+import { MdAssignment } from "react-icons/md"
 
 const ViewContext = createContext<ViewContextType | null>(null)
 
@@ -32,6 +34,7 @@ function ViewContextProvider({ children }: { children: ReactNode }) {
         [VIEWS.COPILOT]: <CopilotView />,
         [VIEWS.CHATS]: <ChatsView />,
         [VIEWS.RUN]: <RunView />,
+        [VIEWS.TASKS]: <TasksView />,
     })
     const [viewIcons] = useState({
         [VIEWS.FILES]: <LuFiles size={28} />,
@@ -40,6 +43,7 @@ function ViewContextProvider({ children }: { children: ReactNode }) {
         [VIEWS.CHATS]: <PiChats size={30} />,
         [VIEWS.COPILOT]: <LuSparkles size={28} />,
         [VIEWS.RUN]: <PiPlay size={28} />,
+        [VIEWS.TASKS]: <MdAssignment size={28} />,
     })
 
     return (
