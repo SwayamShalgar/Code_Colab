@@ -30,6 +30,15 @@ enum SocketEvent {
     ADMISSION_REQUEST = "admission-request",
     ADMISSION_RESPONSE = "admission-response",
     USER_REJECTED = "user-rejected",
+    // Media / WebRTC signalling
+    MEDIA_JOIN = "media-join",
+    MEDIA_OFFER = "media-offer",
+    MEDIA_ANSWER = "media-answer",
+    MEDIA_ICE = "media-ice",
+    MEDIA_LEAVE = "media-leave",
+    TOGGLE_SCREEN_SHARE = "toggle-screen-share",
+    TOGGLE_MIC = "toggle-mic",
+    TOGGLE_CAMERA = "toggle-camera",
 }
 
 interface SocketContext {

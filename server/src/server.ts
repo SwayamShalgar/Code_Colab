@@ -435,6 +435,83 @@ io.on("connection", (socket) => {
 			snapshot,
 		})
 	})
+
+	// Media / WebRTC signalling handlers
+	// When a user wants to join media in the room
+	socket.on(SocketEvent.MEDIA_JOIN, () => {
+		const roomId = getRoomId(socket.id)
+		if (!roomId) return
+		const user = getUserBySocketId(socket.id)
+		// notify other peers in the room that this peer joined media
+		socket.broadcast.to(roomId).emit(SocketEvent.MEDIA_JOIN, {
+			socketId: socket.id,
+			username: user?.username,
+		})
+	})
+
+	// Forward an SDP offer to a specific target peer
+	socket.on(SocketEvent.MEDIA_OFFER, ({ targetSocketId, offer }) => {
+		if (!targetSocketId) return
+		io.to(targetSocketId).emit(SocketEvent.MEDIA_OFFER, {
+			from: socket.id,
+			offer,
+		})
+	})
+
+	// Forward an SDP answer to the original offerer
+	socket.on(SocketEvent.MEDIA_ANSWER, ({ targetSocketId, answer }) => {
+		if (!targetSocketId) return
+		io.to(targetSocketId).emit(SocketEvent.MEDIA_ANSWER, {
+			from: socket.id,
+			answer,
+		})
+	})
+
+	// Forward ICE candidates to a specific peer
+	socket.on(SocketEvent.MEDIA_ICE, ({ targetSocketId, candidate }) => {
+		if (!targetSocketId) return
+		io.to(targetSocketId).emit(SocketEvent.MEDIA_ICE, {
+			from: socket.id,
+			candidate,
+		})
+	})
+
+	// Notify others when a peer leaves media
+	socket.on(SocketEvent.MEDIA_LEAVE, () => {
+		const roomId = getRoomId(socket.id)
+		if (!roomId) return
+		socket.broadcast.to(roomId).emit(SocketEvent.MEDIA_LEAVE, {
+			socketId: socket.id,
+		})
+	})
+
+	// Toggle events (screen, mic, camera) — broadcast to room
+	socket.on(SocketEvent.TOGGLE_SCREEN_SHARE, ({ enabled }) => {
+		const roomId = getRoomId(socket.id)
+		if (!roomId) return
+		socket.broadcast.to(roomId).emit(SocketEvent.TOGGLE_SCREEN_SHARE, {
+			socketId: socket.id,
+			enabled,
+		})
+	})
+
+	socket.on(SocketEvent.TOGGLE_MIC, ({ enabled }) => {
+		const roomId = getRoomId(socket.id)
+		if (!roomId) return
+		socket.broadcast.to(roomId).emit(SocketEvent.TOGGLE_MIC, {
+			socketId: socket.id,
+			enabled,
+		})
+	})
+
+	socket.on(SocketEvent.TOGGLE_CAMERA, ({ enabled }) => {
+		const roomId = getRoomId(socket.id)
+		if (!roomId) return
+		socket.broadcast.to(roomId).emit(SocketEvent.TOGGLE_CAMERA, {
+			socketId: socket.id,
+			enabled,
+		})
+	})
 })
 
 const PORT = process.env.PORT || 3000
