@@ -15,7 +15,7 @@ app.use(express.json())
 
 app.use(cors())
 
-app.use(express.static(path.join(__dirname, "public"))) // Serve static files
+app.use(express.static(path.join(__dirname, "..", "public"))) // Serve static files
 
 const server = http.createServer(app)
 const io = new Server(server, {
@@ -76,14 +76,52 @@ function getUserBySocketId(socketId: SocketId): User | null {
 }
 
 io.on("connection", (socket) => {
+	// Direct messages must stay between admitted members of the same room.
+	const sharesRoom = (targetId: string) => {
+		const sender = userSocketMap.find(
+			(user) => user.socketId === socket.id,
+		)
+
+		return (
+			!!sender &&
+			userSocketMap.some(
+				(user) =>
+					user.socketId === targetId &&
+					user.roomId === sender.roomId,
+			)
+		)
+	}
 	// Handle user actions
 	socket.on(SocketEvent.JOIN_REQUEST, ({ roomId, username, isCollaborative, tasks }) => {
 		// Check is username exist in the room
 		const isUsernameExist = getUsersInRoom(roomId).filter(
 			(u) => u.username === username
 		)
-		if (isUsernameExist.length > 0) {
+		if (
+			isUsernameExist.length > 0 ||
+			[...pendingUsers.values()].some(
+				(user) =>
+					user.roomId === roomId &&
+					user.username === username,
+			)
+		) {
 			io.to(socket.id).emit(SocketEvent.USERNAME_EXISTS)
+			return
+		}
+
+		if (
+			typeof roomId !== "string" ||
+			!roomId.trim() ||
+			typeof username !== "string" ||
+			!username.trim()
+		) {
+			return
+		}
+
+		if (
+			userSocketMap.some((user) => user.socketId === socket.id) ||
+			pendingUsers.has(socket.id)
+		) {
 			return
 		}
 
@@ -93,11 +131,11 @@ io.on("connection", (socket) => {
 		// If first user, make them admin and join directly
 		if (isFirstUser) {
 			// Set room collaboration mode and tasks (default to true if not provided)
-			roomSettings.set(roomId, { 
+			roomSettings.set(roomId, {
 				isCollaborative: isCollaborative ?? true,
 				tasks: tasks || undefined
 			})
-			
+
 			const user = {
 				username,
 				roomId,
@@ -143,8 +181,12 @@ io.on("connection", (socket) => {
 		}
 
 		if (accepted) {
+			if (!io.sockets.sockets.has(socketId)) {
+				pendingUsers.delete(socketId)
+				return
+			}
 			const roomCollaborative = isRoomCollaborative(roomId)
-			
+
 			const user = {
 				username: pendingUser.username,
 				roomId: pendingUser.roomId,
@@ -157,20 +199,20 @@ io.on("connection", (socket) => {
 				isCollaborative: roomCollaborative,
 			}
 			userSocketMap.push(user)
-			
+
 			const userSocket = io.sockets.sockets.get(socketId)
 			if (userSocket) {
 				userSocket.join(roomId)
-				
+
 				// Notify all users in the room (including admin) about the new user
 				// Use the new user's socket to broadcast to ensure they're in the room
 				userSocket.broadcast.to(roomId).emit(SocketEvent.USER_JOINED, { user })
-				
+
 				// Send the current users list and tasks to the newly joined user
 				const users = getUsersInRoom(roomId)
 				const roomTasks = getRoomTasks(roomId)
 				userSocket.emit(SocketEvent.JOIN_ACCEPTED, { user, users, tasks: roomTasks })
-				
+
 				// Also notify the new user about themselves joining
 				userSocket.emit(SocketEvent.USER_JOINED, { user })
 			}
@@ -196,7 +238,7 @@ io.on("connection", (socket) => {
 			.emit(SocketEvent.USER_DISCONNECTED, { user })
 		userSocketMap = userSocketMap.filter((u) => u.socketId !== socket.id)
 		socket.leave(roomId)
-		
+
 		// Clean up room settings if no users left
 		if (getUsersInRoom(roomId).length === 0) {
 			roomSettings.delete(roomId)
@@ -207,6 +249,7 @@ io.on("connection", (socket) => {
 	socket.on(
 		SocketEvent.SYNC_FILE_STRUCTURE,
 		({ fileStructure, openFiles, activeFile, socketId }) => {
+			if (!sharesRoom(socketId)) return
 			io.to(socketId).emit(SocketEvent.SYNC_FILE_STRUCTURE, {
 				fileStructure,
 				openFiles,
@@ -220,14 +263,14 @@ io.on("connection", (socket) => {
 		({ parentDirId, newDirectory }) => {
 			const roomId = getRoomId(socket.id)
 			if (!roomId) return
-			
+
 			// Check if room is collaborative
 			const roomCollaborative = isRoomCollaborative(roomId)
 			if (!roomCollaborative) {
 				// In non-collaborative mode, don't broadcast directory creation
 				return
 			}
-			
+
 			socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_CREATED, {
 				parentDirId,
 				newDirectory,
@@ -238,14 +281,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.DIRECTORY_UPDATED, ({ dirId, children }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
-		
+
 		// Check if room is collaborative
 		const roomCollaborative = isRoomCollaborative(roomId)
 		if (!roomCollaborative) {
 			// In non-collaborative mode, don't broadcast directory updates
 			return
 		}
-		
+
 		socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_UPDATED, {
 			dirId,
 			children,
@@ -255,14 +298,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.DIRECTORY_RENAMED, ({ dirId, newName }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
-		
+
 		// Check if room is collaborative
 		const roomCollaborative = isRoomCollaborative(roomId)
 		if (!roomCollaborative) {
 			// In non-collaborative mode, don't broadcast directory rename
 			return
 		}
-		
+
 		socket.broadcast.to(roomId).emit(SocketEvent.DIRECTORY_RENAMED, {
 			dirId,
 			newName,
@@ -272,14 +315,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.DIRECTORY_DELETED, ({ dirId }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
-		
+
 		// Check if room is collaborative
 		const roomCollaborative = isRoomCollaborative(roomId)
 		if (!roomCollaborative) {
 			// In non-collaborative mode, don't broadcast directory deletion
 			return
 		}
-		
+
 		socket.broadcast
 			.to(roomId)
 			.emit(SocketEvent.DIRECTORY_DELETED, { dirId })
@@ -288,14 +331,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.FILE_CREATED, ({ parentDirId, newFile }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
-		
+
 		// Check if room is collaborative
 		const roomCollaborative = isRoomCollaborative(roomId)
 		if (!roomCollaborative) {
 			// In non-collaborative mode, don't broadcast file creation
 			return
 		}
-		
+
 		socket.broadcast
 			.to(roomId)
 			.emit(SocketEvent.FILE_CREATED, { parentDirId, newFile })
@@ -304,17 +347,17 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.FILE_UPDATED, ({ fileId, newContent }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
-		
+
 		const user = getUserBySocketId(socket.id)
 		if (!user) return
-		
+
 		// Check if room is collaborative
 		const roomCollaborative = isRoomCollaborative(roomId)
 		if (!roomCollaborative) {
 			// In non-collaborative mode, don't broadcast changes to others
 			return
 		}
-		
+
 		// Only broadcast in collaborative mode
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_UPDATED, {
 			fileId,
@@ -325,14 +368,14 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.FILE_RENAMED, ({ fileId, newName }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
-		
+
 		// Check if room is collaborative
 		const roomCollaborative = isRoomCollaborative(roomId)
 		if (!roomCollaborative) {
 			// In non-collaborative mode, don't broadcast file rename
 			return
 		}
-		
+
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_RENAMED, {
 			fileId,
 			newName,
@@ -342,19 +385,20 @@ io.on("connection", (socket) => {
 	socket.on(SocketEvent.FILE_DELETED, ({ fileId }) => {
 		const roomId = getRoomId(socket.id)
 		if (!roomId) return
-		
+
 		// Check if room is collaborative
 		const roomCollaborative = isRoomCollaborative(roomId)
 		if (!roomCollaborative) {
 			// In non-collaborative mode, don't broadcast file deletion
 			return
 		}
-		
+
 		socket.broadcast.to(roomId).emit(SocketEvent.FILE_DELETED, { fileId })
 	})
 
 	// Handle user status
-	socket.on(SocketEvent.USER_OFFLINE, ({ socketId }) => {
+	socket.on(SocketEvent.USER_OFFLINE, () => {
+    const socketId = socket.id
 		userSocketMap = userSocketMap.map((user) => {
 			if (user.socketId === socketId) {
 				return { ...user, status: USER_CONNECTION_STATUS.OFFLINE }
@@ -366,7 +410,8 @@ io.on("connection", (socket) => {
 		socket.broadcast.to(roomId).emit(SocketEvent.USER_OFFLINE, { socketId })
 	})
 
-	socket.on(SocketEvent.USER_ONLINE, ({ socketId }) => {
+	socket.on(SocketEvent.USER_ONLINE, () => {
+    const socketId = socket.id
 		userSocketMap = userSocketMap.map((user) => {
 			if (user.socketId === socketId) {
 				return { ...user, status: USER_CONNECTION_STATUS.ONLINE }
@@ -423,6 +468,7 @@ io.on("connection", (socket) => {
 	})
 
 	socket.on(SocketEvent.SYNC_DRAWING, ({ drawingData, socketId }) => {
+		if (!sharesRoom(socketId)) return
 		socket.broadcast
 			.to(socketId)
 			.emit(SocketEvent.SYNC_DRAWING, { drawingData })
@@ -451,7 +497,7 @@ io.on("connection", (socket) => {
 
 	// Forward an SDP offer to a specific target peer
 	socket.on(SocketEvent.MEDIA_OFFER, ({ targetSocketId, offer }) => {
-		if (!targetSocketId) return
+		if (!sharesRoom(targetSocketId)) return
 		io.to(targetSocketId).emit(SocketEvent.MEDIA_OFFER, {
 			from: socket.id,
 			offer,
@@ -460,7 +506,7 @@ io.on("connection", (socket) => {
 
 	// Forward an SDP answer to the original offerer
 	socket.on(SocketEvent.MEDIA_ANSWER, ({ targetSocketId, answer }) => {
-		if (!targetSocketId) return
+		if (!sharesRoom(targetSocketId)) return
 		io.to(targetSocketId).emit(SocketEvent.MEDIA_ANSWER, {
 			from: socket.id,
 			answer,
@@ -469,7 +515,7 @@ io.on("connection", (socket) => {
 
 	// Forward ICE candidates to a specific peer
 	socket.on(SocketEvent.MEDIA_ICE, ({ targetSocketId, candidate }) => {
-		if (!targetSocketId) return
+		if (!sharesRoom(targetSocketId)) return
 		io.to(targetSocketId).emit(SocketEvent.MEDIA_ICE, {
 			from: socket.id,
 			candidate,

@@ -33,9 +33,23 @@ const defaultSettings: Settings = {
 
 function SettingContextProvider({ children }: { children: ReactNode }) {
     const { getItem } = useLocalStorage()
-    const storedSettings: Partial<Settings> = JSON.parse(
-        getItem("settings") || "{}",
-    )
+    const [storedSettings] = useState<Partial<Settings>>(() => {
+        try {
+            const value = JSON.parse(getItem("settings") || "{}")
+
+            if (
+                value &&
+                typeof value === "object" &&
+                !Array.isArray(value)
+            ) {
+                return value
+            }
+
+            return {}
+        } catch {
+            return {}
+        }
+    })
     const storedTheme =
         storedSettings.theme !== undefined
             ? storedSettings.theme
@@ -82,7 +96,14 @@ function SettingContextProvider({ children }: { children: ReactNode }) {
             fontFamily,
             showGitHubCorner,
         }
-        localStorage.setItem("settings", JSON.stringify(updatedSettings))
+        try {
+            localStorage.setItem(
+                "settings",
+                JSON.stringify(updatedSettings),
+            )
+        } catch {
+            // Keep settings usable when browser storage is unavailable.
+        }
     }, [theme, language, fontSize, fontFamily, showGitHubCorner])
 
     return (

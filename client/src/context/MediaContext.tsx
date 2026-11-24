@@ -34,7 +34,7 @@ const ICE_SERVERS: RTCConfiguration = {
 export const MediaProvider = ({ children }: { children: ReactNode }) => {
     const { socket } = useSocket()
     const { users } = useAppContext()
-    
+
     const [localStream, setLocalStream] = useState<MediaStream | null>(null)
     const [screenStream, setScreenStream] = useState<MediaStream | null>(null)
     const [mediaState, setMediaState] = useState<MediaState>({
@@ -43,7 +43,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
         isScreenSharing: false,
         isInMediaSession: false,
     })
-    
+
     const [remotePeers, setRemotePeers] = useState<Map<string, RemotePeer>>(new Map())
     const remotePeersRef = useRef<Map<string, RemotePeer>>(new Map())
 
@@ -89,20 +89,20 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
         // Handle incoming remote stream
         pc.ontrack = (event) => {
             console.log("Received track:", event.track.kind, "from stream:", event.streams[0].id)
-            
+
             setRemotePeers((prev) => {
                 const updated = new Map(prev)
                 const peer = updated.get(socketId) || { socketId }
-                
+
                 // Check if this is a screen share stream (has only video track, no audio)
                 const incomingStream = event.streams[0]
                 const videoTracks = incomingStream.getVideoTracks()
                 const audioTracks = incomingStream.getAudioTracks()
-                
+
                 // If stream has video but no audio, likely a screen share
                 // Or if the track label indicates screen share
                 const isScreenShare = videoTracks.length > 0 && audioTracks.length === 0
-                
+
                 if (isScreenShare && event.track.kind === 'video') {
                     // This is a screen share stream
                     peer.screenStream = incomingStream
@@ -115,7 +115,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
                         peer.stream = incomingStream
                     }
                 }
-                
+
                 updated.set(socketId, peer)
                 return updated
             })
@@ -150,7 +150,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
 
             // Notify server that we joined media
             socket.emit(SocketEvent.MEDIA_JOIN)
-            
+
             toast.success("Joined media session")
         } catch (error) {
             console.error("Error accessing media devices:", error)
@@ -188,7 +188,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
 
         // Notify server
         socket.emit(SocketEvent.MEDIA_LEAVE)
-        
+
         toast.success("Left media session")
     }, [localStream, screenStream, socket])
 
@@ -213,10 +213,10 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
             try {
                 const stream = await navigator.mediaDevices.getUserMedia({ video: true })
                 const videoTrack = stream.getVideoTracks()[0]
-                
+
                 if (localStream) {
                     localStream.addTrack(videoTrack)
-                    
+
                     // Add track to all peer connections
                     remotePeersRef.current.forEach((peer) => {
                         if (peer.peerConnection && localStream) {
@@ -229,7 +229,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
                         }
                     })
                 }
-                
+
                 setMediaState((prev) => ({ ...prev, isCameraOn: true }))
                 socket.emit(SocketEvent.TOGGLE_CAMERA, { enabled: true })
             } catch (error) {
@@ -265,7 +265,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
             // Stop screen sharing
             if (screenStream) {
                 screenStream.getTracks().forEach((track) => track.stop())
-                
+
                 // Remove screen tracks from all peer connections
                 remotePeersRef.current.forEach((peer) => {
                     if (peer.peerConnection) {
@@ -277,7 +277,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
                         })
                     }
                 })
-                
+
                 setScreenStream(null)
             }
             setMediaState((prev) => ({ ...prev, isScreenSharing: false }))
@@ -307,7 +307,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
                             })
                         }
                     })
-                    
+
                     setScreenStream(null)
                     setMediaState((prev) => ({ ...prev, isScreenSharing: false }))
                     socket.emit(SocketEvent.TOGGLE_SCREEN_SHARE, { enabled: false })
@@ -320,7 +320,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
                     if (peer.peerConnection) {
                         // Add the screen track
                         peer.peerConnection.addTrack(screenTrack, stream)
-                        
+
                         // Create and send new offer to update the connection
                         try {
                             const offer = await peer.peerConnection.createOffer()
@@ -334,7 +334,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
                         }
                     }
                 })
-                
+
                 toast.success("Screen sharing started")
             } catch (error) {
                 console.error("Error sharing screen:", error)
@@ -355,7 +355,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
 
             // Create peer connection
             const pc = createPeerConnection(socketId)
-            
+
             setRemotePeers((prev) => {
                 const updated = new Map(prev)
                 updated.set(socketId, {
@@ -370,7 +370,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
             try {
                 const offer = await pc.createOffer()
                 await pc.setLocalDescription(offer)
-                
+
                 socket.emit(SocketEvent.MEDIA_OFFER, {
                     targetSocketId: socketId,
                     offer,
@@ -392,7 +392,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
                 const pc = createPeerConnection(from)
                 const displayName = getUsernameBySocketId(from)
                 peer = { socketId: from, username: displayName, peerConnection: pc }
-                
+
                 setRemotePeers((prev) => {
                     const updated = new Map(prev)
                     updated.set(from, peer!)
@@ -404,7 +404,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
                 await peer.peerConnection!.setRemoteDescription(new RTCSessionDescription(offer))
                 const answer = await peer.peerConnection!.createAnswer()
                 await peer.peerConnection!.setLocalDescription(answer)
-                
+
                 socket.emit(SocketEvent.MEDIA_ANSWER, {
                     targetSocketId: from,
                     answer,
@@ -443,7 +443,7 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
         // When a peer leaves media
         const handleMediaLeave = ({ socketId }: { socketId: string }) => {
             console.log("Peer left media:", socketId)
-            
+
             const peer = remotePeersRef.current.get(socketId)
             if (peer?.peerConnection) {
                 peer.peerConnection.close()
@@ -517,12 +517,23 @@ export const MediaProvider = ({ children }: { children: ReactNode }) => {
     // Cleanup on unmount
     useEffect(() => {
         return () => {
-            if (localStream) {
-                localStream.getTracks().forEach((track) => track.stop())
-            }
-            if (screenStream) {
-                screenStream.getTracks().forEach((track) => track.stop())
-            }
+            localStream?.getTracks().forEach((track) => {
+                track.stop()
+            })
+        }
+    }, [localStream])
+
+    useEffect(() => {
+        return () => {
+            screenStream?.getTracks().forEach((track) => {
+                track.stop()
+            })
+        }
+    }, [screenStream])
+
+    // Close peer connections when leaving the provider.
+    useEffect(() => {
+        return () => {
             remotePeersRef.current.forEach((peer) => {
                 if (peer.peerConnection) {
                     peer.peerConnection.close()

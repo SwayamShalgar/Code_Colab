@@ -1,3 +1,4 @@
+import { isAxiosError } from "axios"
 import axiosInstance from "@/api/pistonApi"
 import { Language, RunContext as RunContextType, TestResult } from "@/types/run"
 import langMap from "lang-map"
@@ -45,9 +46,12 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
             try {
                 const languages = await axiosInstance.get("/runtimes")
                 setSupportedLanguages(languages.data)
-            } catch (error: any) {
+            } catch (error: unknown) {
                 toast.error("Failed to fetch supported languages")
-                if (error?.response?.data) console.error(error?.response?.data)
+
+                if (isAxiosError(error)) {
+                    console.error(error.response?.data)
+                }
             }
         }
 
@@ -66,22 +70,28 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
                     lang.aliases.includes(extension) ||
                     languageName.includes(lang.language.toLowerCase()),
             )
-            if (language) setSelectedLanguage(language)
+            setSelectedLanguage(
+                language ?? {
+                    language: "",
+                    version: "",
+                    aliases: [],
+                },
+            )
         } else setSelectedLanguage({ language: "", version: "", aliases: [] })
     }, [activeFile?.name, supportedLanguages])
 
     const runCode = async () => {
         try {
-            if (!selectedLanguage) {
+            if (!selectedLanguage.language || !selectedLanguage.version) {
                 return toast.error("Please select a language to run the code")
             } else if (!activeFile) {
                 return toast.error("Please open a file to run the code")
             }
-            
+
             // Check if code contains input() and warn if no input provided
             const codeContent = activeFile.content?.toLowerCase() || ''
-            if ((codeContent.includes('input(') || codeContent.includes('scanner') || 
-                 codeContent.includes('bufferedreader') || codeContent.includes('cin')) && 
+            if ((codeContent.includes('input(') || codeContent.includes('scanner') ||
+                codeContent.includes('bufferedreader') || codeContent.includes('cin')) &&
                 !input.trim()) {
                 const shouldContinue = window.confirm(
                     "⚠️ Your code appears to use input, but no input values were provided.\n\n" +
@@ -92,7 +102,7 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
                     return
                 }
             }
-            
+
             toast.loading("Running code...")
 
             setIsRunning(true)
@@ -104,7 +114,7 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
                 files: [{ name: activeFile.name, content: activeFile.content }],
                 stdin: input,
             })
-            
+
             // Display output or errors
             if (response.data.run.stderr) {
                 setOutput(response.data.run.stderr)
@@ -120,15 +130,20 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
                 toast.success("Code executed successfully")
             }
             setIsRunning(false)
-        } catch (error: any) {
-            console.error(error?.response?.data)
+        } catch (error: unknown) {
+            const errorData = isAxiosError(error)
+                ? error.response?.data
+                : undefined
+
+            console.error(errorData)
             setIsRunning(false)
             toast.dismiss()
-            
-            // Show detailed error message
-            const errorMessage = error?.response?.data?.message || 
-                               error?.response?.data?.error || 
-                               "Failed to run the code"
+
+            const errorMessage =
+                errorData?.message ||
+                errorData?.error ||
+                "Failed to run the code"
+
             setOutput(`Error: ${errorMessage}`)
             toast.error("Failed to execute code")
         }
@@ -136,7 +151,7 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
 
     const runTestCases = async () => {
         try {
-            if (!selectedLanguage) {
+            if (!selectedLanguage.language || !selectedLanguage.version) {
                 return toast.error("Please select a language to run the code")
             } else if (!activeFile) {
                 return toast.error("Please open a file to run the code")
@@ -147,7 +162,7 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
             }
 
             const selectedTask = currentUser.tasks[selectedTaskIndex]
-            
+
             if (selectedTask.testCases.length === 0) {
                 return toast.error("No test cases available for this task")
             }
@@ -162,7 +177,7 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
             // Run code for each test case
             for (let i = 0; i < selectedTask.testCases.length; i++) {
                 const testCase = selectedTask.testCases[i]
-                
+
                 try {
                     const response = await axiosInstance.post("/execute", {
                         language,
@@ -174,16 +189,19 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
                     const actualOutput = response.data.run.stderr || response.data.run.stdout
                     const expectedOutput = testCase.expectedOutput.trim()
                     const actualOutputTrimmed = actualOutput.trim()
-                    
+
                     results.push({
                         testCaseIndex: i + 1,
                         input: testCase.input,
                         expectedOutput: testCase.expectedOutput,
                         actualOutput: actualOutput,
-                        passed: actualOutputTrimmed === expectedOutput,
+                        passed:
+                            response.data.run.code === 0 &&
+                            !response.data.run.signal &&
+                            actualOutputTrimmed === expectedOutput,
                         error: response.data.run.stderr ? "Runtime Error" : undefined,
                     })
-                } catch (error: any) {
+                } catch (error: unknown) {
                     results.push({
                         testCaseIndex: i + 1,
                         input: testCase.input,
@@ -207,7 +225,7 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
             } else {
                 toast.error(`${passedCount}/${totalCount} test cases passed`)
             }
-        } catch (error: any) {
+        } catch (error: unknown) {
             console.error(error)
             setIsRunning(false)
             toast.dismiss()
