@@ -6,7 +6,6 @@ import { ChangeEvent, FormEvent, useEffect, useRef, useState } from "react"
 import { toast } from "react-hot-toast"
 import { useLocation, useNavigate } from "react-router-dom"
 import { v4 as uuidv4 } from "uuid"
-import logo from "@/assets/logo.svg"
 
 const FormComponent = () => {
     const location = useLocation()
@@ -38,9 +37,9 @@ const FormComponent = () => {
     }
 
     const toggleCollaborationMode = () => {
-        setCurrentUser({ 
-            ...currentUser, 
-            isCollaborative: !currentUser.isCollaborative 
+        setCurrentUser({
+            ...currentUser,
+            isCollaborative: !currentUser.isCollaborative
         })
     }
 
@@ -63,11 +62,11 @@ const FormComponent = () => {
             toast.error("Task title is required")
             return
         }
-        
+
         const validTestCases = testCases.filter(
             tc => tc.input.trim() || tc.expectedOutput.trim()
         )
-        
+
         const newTask = {
             id: editingTaskId || uuidv4(),
             title: taskTitle,
@@ -76,7 +75,7 @@ const FormComponent = () => {
         }
 
         const existingTasks = currentUser.tasks || []
-        
+
         if (editingTaskId) {
             // Update existing task
             setCurrentUser({
@@ -92,7 +91,7 @@ const FormComponent = () => {
             })
             toast.success("Task added!")
         }
-        
+
         // Reset form
         setShowTaskForm(false)
         setEditingTaskId(null)
@@ -189,27 +188,45 @@ const FormComponent = () => {
     }, [currentUser, location.state?.redirect, navigate, setStatus, socket, status])
 
     return (
-        <div className="flex w-full max-w-[500px] flex-col items-center justify-center gap-4 p-4 sm:w-[500px] sm:p-8">
-            <img src={logo} alt="Logo" className="w-full"/>
+        <div className="orbit-entry">
+            <div className="orbit-entry-heading">
+                <p className="orbit-eyebrow">Your workspace</p>
+
+                <h2>
+                    {isCreatingRoom
+                        ? "Start something great"
+                        : "Join your team"}
+                </h2>
+
+                <p>
+                    {isCreatingRoom
+                        ? "Choose your name and configure the room below."
+                        : "Enter a room ID and your name to get started."}
+                </p>
+            </div>
             <form onSubmit={joinRoom} className="flex w-full flex-col gap-4">
                 <input
                     type="text"
                     name="roomId"
-                    placeholder="Room Id"
+                    placeholder="Paste your room ID"
+                    aria-label="Room ID"
                     className="w-full rounded-md border border-gray-500 bg-darkHover px-3 py-3 focus:outline-none"
                     onChange={handleInputChanges}
-                    value={currentUser.roomId}
+                    value={currentUser.roomId ?? ""}
                 />
+
                 <input
                     type="text"
                     name="username"
-                    placeholder="Username"
+                    placeholder="Your name"
+                    aria-label="Your name"
+                    autoComplete="nickname"
                     className="w-full rounded-md border border-gray-500 bg-darkHover px-3 py-3 focus:outline-none"
                     onChange={handleInputChanges}
-                    value={currentUser.username}
+                    value={currentUser.username ?? ""}
                     ref={usernameRef}
                 />
-                
+
                 {/* Collaboration Mode Toggle - Only show when creating a new room */}
                 {isCreatingRoom && (
                     <>
@@ -220,26 +237,28 @@ const FormComponent = () => {
                                         Collaboration Mode
                                     </span>
                                     <span className="text-sm text-gray-400">
-                                        {currentUser.isCollaborative 
-                                            ? "Changes sync between all users" 
+                                        {currentUser.isCollaborative
+                                            ? "Changes sync between all users"
                                             : "Each user has independent code"}
                                     </span>
                                 </div>
+
                                 <button
                                     type="button"
+                                    role="switch"
+                                    aria-label="Collaborative editing"
+                                    aria-checked={!!currentUser.isCollaborative}
                                     onClick={toggleCollaborationMode}
-                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                                        currentUser.isCollaborative 
-                                            ? "bg-primary" 
-                                            : "bg-gray-600"
-                                    }`}
+                                    className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${currentUser.isCollaborative
+                                        ? "bg-primary"
+                                        : "bg-gray-600"
+                                        }`}
                                 >
                                     <span
-                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                                            currentUser.isCollaborative 
-                                                ? "translate-x-6" 
-                                                : "translate-x-1"
-                                        }`}
+                                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${currentUser.isCollaborative
+                                            ? "translate-x-6"
+                                            : "translate-x-1"
+                                            }`}
                                     />
                                 </button>
                             </div>
@@ -297,7 +316,7 @@ const FormComponent = () => {
                                     ))}
                                 </div>
                             )}
-                            
+
                             {!showTaskForm && (!currentUser.tasks || currentUser.tasks.length === 0) && (
                                 <p className="text-xs text-gray-500 text-center py-2">
                                     No tasks added yet
@@ -321,7 +340,7 @@ const FormComponent = () => {
                                         rows={3}
                                         className="w-full rounded-md border border-gray-600 bg-gray-900 px-3 py-2 text-sm text-white focus:outline-none"
                                     />
-                                    
+
                                     <div className="space-y-2">
                                         <div className="flex items-center justify-between">
                                             <span className="text-xs font-semibold text-gray-300">
@@ -335,7 +354,7 @@ const FormComponent = () => {
                                                 + Add Test Case
                                             </button>
                                         </div>
-                                        
+
                                         {testCases.map((tc, index) => (
                                             <div key={index} className="space-y-1 rounded border border-gray-600 bg-gray-900 p-2">
                                                 <div className="flex items-center justify-between">
@@ -379,7 +398,7 @@ const FormComponent = () => {
                                             </div>
                                         ))}
                                     </div>
-                                    
+
                                     <div className="flex gap-2">
                                         <button
                                             type="button"
@@ -401,19 +420,24 @@ const FormComponent = () => {
                         </div>
                     </>
                 )}
-                
+
                 <button
                     type="submit"
+                    disabled={status === USER_STATUS.ATTEMPTING_JOIN}
                     className="mt-2 w-full rounded-md bg-primary px-8 py-3 text-lg font-semibold text-black"
                 >
-                    Join
+                    {status === USER_STATUS.ATTEMPTING_JOIN
+                        ? "Connecting…"
+                        : isCreatingRoom
+                            ? "Create workspace"
+                            : "Join workspace"}
                 </button>
             </form>
             <button
                 className="cursor-pointer select-none underline"
                 onClick={createNewRoomId}
             >
-                Generate Unique Room Id
+                Create a new room
             </button>
         </div>
     )

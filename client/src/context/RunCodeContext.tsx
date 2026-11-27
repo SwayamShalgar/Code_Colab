@@ -1,5 +1,5 @@
 import { isAxiosError } from "axios"
-import axiosInstance from "@/api/pistonApi"
+import axiosInstance from "@/api/compilerApi"
 import { Language, RunContext as RunContextType, TestResult } from "@/types/run"
 import langMap from "lang-map"
 import {
@@ -116,19 +116,24 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
             })
 
             // Display output or errors
-            if (response.data.run.stderr) {
-                setOutput(response.data.run.stderr)
-                toast.dismiss()
-                toast.error("Code execution failed - check output for errors")
-            } else if (response.data.run.stdout) {
-                setOutput(response.data.run.stdout)
-                toast.dismiss()
-                toast.success("Code executed successfully")
+            const run = response.data.run
+            const failed = run.code !== 0 || !!run.signal
+
+            setOutput(
+                [run.stdout, run.stderr]
+                    .filter(Boolean)
+                    .join("\n") || "(no output)",
+            )
+
+            toast.dismiss()
+
+            if (failed) {
+                toast.error("Code execution failed - check output")
             } else {
-                setOutput("(no output)")
-                toast.dismiss()
                 toast.success("Code executed successfully")
             }
+
+
             setIsRunning(false)
         } catch (error: unknown) {
             const errorData = isAxiosError(error)
@@ -186,7 +191,7 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
                         stdin: testCase.input,
                     })
 
-                    const actualOutput = response.data.run.stderr || response.data.run.stdout
+                    const actualOutput = response.data.run.stdout || ""
                     const expectedOutput = testCase.expectedOutput.trim()
                     const actualOutputTrimmed = actualOutput.trim()
 
@@ -199,7 +204,10 @@ const RunCodeContextProvider = ({ children }: { children: ReactNode }) => {
                             response.data.run.code === 0 &&
                             !response.data.run.signal &&
                             actualOutputTrimmed === expectedOutput,
-                        error: response.data.run.stderr ? "Runtime Error" : undefined,
+                        error:
+                            response.data.run.code !== 0 || response.data.run.signal
+                                ? response.data.run.stderr || "Execution failed"
+                                : undefined,
                     })
                 } catch (error: unknown) {
                     results.push({

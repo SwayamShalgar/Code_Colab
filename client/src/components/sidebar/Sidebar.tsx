@@ -1,10 +1,21 @@
 import SidebarButton from "@/components/sidebar/sidebar-views/SidebarButton"
 import { useViews } from "@/context/ViewContext"
+import { useAppContext } from "@/context/AppContext"
 import useResponsive from "@/hooks/useResponsive"
 import { VIEWS } from "@/types/view"
-import cn from "classnames"
+import toast from "react-hot-toast"
 
-function Sidebar() {
+const views = [
+    VIEWS.FILES,
+    VIEWS.TASKS,
+    VIEWS.CHATS,
+    VIEWS.MEDIA,
+    VIEWS.RUN,
+    VIEWS.CLIENTS,
+    VIEWS.SETTINGS,
+]
+
+export default function Sidebar() {
     const {
         activeView,
         isSidebarOpen,
@@ -12,54 +23,68 @@ function Sidebar() {
         viewIcons,
     } = useViews()
 
+    const { currentUser } = useAppContext()
     const { minHeightReached } = useResponsive()
 
-    return (
-        <aside className="flex w-full md:h-full md:max-h-full md:min-h-full md:w-auto">
-            <div
-                className={cn(
-                    "fixed bottom-0 left-0 z-50 flex h-[50px] w-full gap-4 self-end overflow-hidden border-t border-darkHover bg-dark p-2 md:static md:h-full md:w-[50px] md:min-w-[50px] md:flex-col md:border-r md:border-t-0 md:p-2 md:pt-4",
-                    { hidden: minHeightReached },
-                )}
-            >
-                <SidebarButton
-                    viewName={VIEWS.FILES}
-                    icon={viewIcons[VIEWS.FILES]}
-                />
-                <SidebarButton
-                    viewName={VIEWS.TASKS}
-                    icon={viewIcons[VIEWS.TASKS]}
-                />
-                <SidebarButton
-                    viewName={VIEWS.CHATS}
-                    icon={viewIcons[VIEWS.CHATS]}
-                />
-                <SidebarButton
-                    viewName={VIEWS.MEDIA}
-                    icon={viewIcons[VIEWS.MEDIA]}
-                />
-                <SidebarButton
-                    viewName={VIEWS.RUN}
-                    icon={viewIcons[VIEWS.RUN]}
-                />
-                <SidebarButton
-                    viewName={VIEWS.CLIENTS}
-                    icon={viewIcons[VIEWS.CLIENTS]}
-                />
-                <SidebarButton
-                    viewName={VIEWS.SETTINGS}
-                    icon={viewIcons[VIEWS.SETTINGS]}
-                />
-            </div>
+    const copyRoom = async () => {
+        try {
+            await navigator.clipboard.writeText(
+                currentUser.roomId,
+            )
+            toast.success("Room ID copied")
+        } catch {
+            toast.error("Copy the room ID from the address bar")
+        }
+    }
 
-            <div
-                className="absolute left-0 top-0 z-20 w-full flex-col bg-dark md:static md:min-w-[300px]"
-                style={isSidebarOpen ? {} : { display: "none" }}
+    return (
+        <aside className="orbit-sidebar">
+            <nav
+                className={`orbit-rail ${
+                    minHeightReached ? "orbit-rail-hidden" : ""
+                }`}
+                aria-label="Workspace navigation"
             >
-                {viewComponents[activeView]}
-            </div>
+                <span
+                    className="orbit-mark orbit-rail-brand"
+                    title="CodeOrbit"
+                >
+                    CO
+                </span>
+
+                {views.map((view) => (
+                    <SidebarButton
+                        key={view}
+                        viewName={view}
+                        icon={viewIcons[view]}
+                    />
+                ))}
+            </nav>
+
+            {isSidebarOpen && (
+                <section className="orbit-panel">
+                    <header className="orbit-panel-header">
+                        <div>
+                            <strong>CodeOrbit</strong>
+                            <small title={currentUser.username}>
+                                {currentUser.username || "Workspace"}
+                            </small>
+                        </div>
+
+                        <button
+                            type="button"
+                            className="orbit-copy"
+                            onClick={copyRoom}
+                        >
+                            Copy room ID
+                        </button>
+                    </header>
+
+                    <div className="orbit-panel-content">
+                        {viewComponents[activeView]}
+                    </div>
+                </section>
+            )}
         </aside>
     )
 }
-
-export default Sidebar

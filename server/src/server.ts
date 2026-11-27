@@ -6,6 +6,7 @@ import { SocketEvent, SocketId } from "./types/socket"
 import { USER_CONNECTION_STATUS, User, Task } from "./types/user"
 import { Server } from "socket.io"
 import path from "path"
+import compiler from "./compiler"
 
 dotenv.config()
 
@@ -14,6 +15,7 @@ const app = express()
 app.use(express.json())
 
 app.use(cors())
+app.use("/api/compiler", compiler)
 
 app.use(express.static(path.join(__dirname, "..", "public"))) // Serve static files
 

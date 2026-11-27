@@ -1,68 +1,89 @@
 import { useViews } from "@/context/ViewContext"
-import useLocalStorage from "@/hooks/useLocalStorage"
 import useWindowDimensions from "@/hooks/useWindowDimensions"
 import { ReactNode } from "react"
 import Split from "react-split"
 
-function SplitterComponent({ children }: { children: ReactNode }) {
+export default function SplitterComponent({
+    children,
+}: {
+    children: ReactNode
+}) {
     const { isSidebarOpen } = useViews()
     const { isMobile, width } = useWindowDimensions()
-    const { setItem, getItem } = useLocalStorage()
 
-    const getGutter = () => {
-        const gutter = document.createElement("div")
-        gutter.className = "h-full cursor-e-resizer hidden md:block"
-        gutter.style.backgroundColor = "#e1e1ffb3"
-        return gutter
-    }
+    let sizes = [35, 65]
 
-    const getSizes = () => {
-        if (isMobile) return [0, width]
-        const savedSizes = getItem("editorSizes")
-        let sizes = [35, 65]
-        if (savedSizes) {
-            sizes = JSON.parse(savedSizes)
+    try {
+        const saved = JSON.parse(
+            localStorage.getItem("editorSizes") || "null",
+        )
+
+        if (
+            Array.isArray(saved) &&
+            saved.length === 2 &&
+            saved.every(
+                (value) =>
+                    typeof value === "number" &&
+                    Number.isFinite(value) &&
+                    value > 0,
+            ) &&
+            Math.abs(saved[0] + saved[1] - 100) < 1
+        ) {
+            sizes = saved
         }
-        return isSidebarOpen ? sizes : [0, width]
+    } catch {
+        // Use the default layout if storage is unavailable.
     }
 
-    const getMinSizes = () => {
-        if (isMobile) return [0, width]
-        return isSidebarOpen ? [350, 350] : [50, 0]
-    }
+    const closedWidth = (76 / Math.max(width, 1)) * 100
 
-    const getMaxSizes = () => {
-        if (isMobile) return [0, Infinity]
-        return isSidebarOpen ? [Infinity, Infinity] : [0, Infinity]
-    }
-
-    const handleGutterDrag = (sizes: number[]) => {
-        setItem("editorSizes", JSON.stringify(sizes))
-    }
-
-    const getGutterStyle = () => ({
-        width: "7px",
-        display: isSidebarOpen && !isMobile ? "block" : "none",
-    })
+    const actualSizes = isMobile
+        ? [0, 100]
+        : isSidebarOpen
+          ? sizes
+          : [closedWidth, 100 - closedWidth]
 
     return (
         <Split
-            sizes={getSizes()}
-            minSize={getMinSizes()}
-            gutter={getGutter}
-            maxSize={getMaxSizes()}
-            dragInterval={1}
+            sizes={actualSizes}
+            minSize={
+                isMobile
+                    ? [0, 0]
+                    : isSidebarOpen
+                      ? [350, 300]
+                      : [76, 0]
+            }
+            maxSize={
+                isMobile
+                    ? [0, Infinity]
+                    : isSidebarOpen
+                      ? [Infinity, Infinity]
+                      : [76, Infinity]
+            }
+            gutterSize={isSidebarOpen && !isMobile ? 6 : 0}
+            gutter={() => {
+                const gutter = document.createElement("div")
+                gutter.style.background = "#282e43"
+                gutter.style.cursor = "col-resize"
+                return gutter
+            }}
             direction="horizontal"
-            gutterAlign="center"
-            cursor="e-resize"
-            snapOffset={30}
-            gutterStyle={getGutterStyle}
-            onDrag={handleGutterDrag}
-            className="flex h-screen min-h-screen max-w-full items-center justify-center overflow-hidden"
+            cursor="col-resize"
+            onDragEnd={(newSizes) => {
+                if (isMobile || !isSidebarOpen) return
+
+                try {
+                    localStorage.setItem(
+                        "editorSizes",
+                        JSON.stringify(newSizes),
+                    )
+                } catch {
+                    // Resizing still works without persistence.
+                }
+            }}
+            className="flex h-screen min-h-screen max-w-full overflow-hidden"
         >
             {children}
         </Split>
     )
 }
-
-export default SplitterComponent

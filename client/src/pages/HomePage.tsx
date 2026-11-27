@@ -1,25 +1,78 @@
-import illustration from "@/assets/illustration.svg"
 import FormComponent from "@/components/forms/FormComponent"
-// import Footer from "@/components/common/Footer";
 
-function HomePage() {
+export default function HomePage() {
     return (
-        <div className="flex min-h-screen flex-col items-center justify-center gap-16">
-            <div className="my-12 flex h-full min-w-full flex-col items-center justify-evenly sm:flex-row sm:pt-0">
-                <div className="flex w-full animate-up-down justify-center sm:w-1/2 sm:pl-4">
-                    <img
-                        src={illustration}
-                        alt="Code Sync Illustration"
-                        className="mx-auto w-[250px] sm:w-[400px]"
-                    />
-                </div>
-                <div className="flex w-full items-center justify-center sm:w-1/2">
+        <div className="orbit-home">
+            <header className="orbit-header">
+                <a
+                    href="/"
+                    className="orbit-brand"
+                    aria-label="CodeOrbit home"
+                >
+                    <span className="orbit-mark" aria-hidden="true">
+                        CO
+                    </span>
+                    CodeOrbit
+                </a>
+
+                <a href="#room" className="orbit-header-link">
+                    Enter workspace
+                </a>
+            </header>
+
+            <main className="orbit-hero">
+                <section className="orbit-intro">
+                    <p className="orbit-eyebrow">
+                        A shared space for your next idea
+                    </p>
+
+                    <h1>
+                        Great code.
+                        <br />
+                        <span>Better together.</span>
+                    </h1>
+
+                    <p className="orbit-description">
+                        Bring your team into one workspace. Write code,
+                        run it, and work through the tricky parts together.
+                    </p>
+
+                    <div className="orbit-features">
+                        <div>
+                            <strong>Code together</strong>
+                            <p>Share files and edit in real time.</p>
+                        </div>
+
+                        <div>
+                            <strong>Run & learn</strong>
+                            <p>Execute programs and check test cases.</p>
+                        </div>
+
+                        <div>
+                            <strong>Stay connected</strong>
+                            <p>Keep chat and calls beside your code.</p>
+                        </div>
+                    </div>
+
+                    <div className="orbit-note">
+                        <span aria-hidden="true">&lt;/&gt;</span>
+                        <p>Your next project starts with a room.</p>
+                    </div>
+                </section>
+
+                <section
+                    id="room"
+                    className="orbit-room"
+                    aria-label="Create or join a room"
+                >
                     <FormComponent />
-                </div>
-            </div>
-            {/* <Footer /> */}
+                </section>
+            </main>
+
+            <footer className="orbit-footer">
+                <span>CodeOrbit</span>
+                <span>Make room for better ideas.</span>
+            </footer>
         </div>
     )
 }
-
-export default HomePage

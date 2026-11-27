@@ -85,7 +85,7 @@ function RunView() {
                         value={JSON.stringify(selectedLanguage)}
                         onChange={handleLanguageChange}
                     >
-                        {supportedLanguages
+                        {[...supportedLanguages]
                             .sort((a, b) => (a.language > b.language ? 1 : -1))
                             .map((lang, i) => {
                                 return (
@@ -93,10 +93,7 @@ function RunView() {
                                         key={i}
                                         value={JSON.stringify(lang)}
                                     >
-                                        {lang.language +
-                                            (lang.version
-                                                ? ` (${lang.version})`
-                                                : "")}
+                                        {lang.language}
                                     </option>
                                 )
                             })}
@@ -154,11 +151,10 @@ function RunView() {
                         <div className="space-y-3">
                             {/* Summary Banner */}
                             {testResults.length > 0 && (
-                                <div className={`rounded-lg border-2 p-4 ${
-                                    passedCount === totalCount
+                                <div className={`rounded-lg border-2 p-4 ${passedCount === totalCount
                                         ? "border-green-500 bg-green-900/30"
                                         : "border-yellow-500 bg-yellow-900/20"
-                                }`}>
+                                    }`}>
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <h3 className="text-lg font-bold">
@@ -179,16 +175,15 @@ function RunView() {
                                     </div>
                                 </div>
                             )}
-                            
+
                             {/* Individual Test Results */}
                             {testResults.map((result, index) => (
                                 <div
                                     key={index}
-                                    className={`rounded-lg border p-3 ${
-                                        result.passed
+                                    className={`rounded-lg border p-3 ${result.passed
                                             ? "border-green-500 bg-green-900/20"
                                             : "border-red-500 bg-red-900/20"
-                                    }`}
+                                        }`}
                                 >
                                     <div className="mb-2 flex items-center justify-between">
                                         <span className="font-semibold">
@@ -200,7 +195,7 @@ function RunView() {
                                             <FaTimesCircle className="text-red-500" size={20} />
                                         )}
                                     </div>
-                                    
+
                                     <div className="space-y-2 text-sm">
                                         <div>
                                             <span className="text-gray-400">Input:</span>
@@ -208,23 +203,22 @@ function RunView() {
                                                 {result.input}
                                             </pre>
                                         </div>
-                                        
+
                                         <div>
                                             <span className="text-gray-400">Expected:</span>
                                             <pre className="mt-1 rounded bg-gray-900 p-2 text-xs text-green-300">
                                                 {result.expectedOutput}
                                             </pre>
                                         </div>
-                                        
+
                                         <div>
                                             <span className="text-gray-400">Your Output:</span>
-                                            <pre className={`mt-1 rounded bg-gray-900 p-2 text-xs ${
-                                                result.passed ? "text-green-300" : "text-red-300"
-                                            }`}>
+                                            <pre className={`mt-1 rounded bg-gray-900 p-2 text-xs ${result.passed ? "text-green-300" : "text-red-300"
+                                                }`}>
                                                 {result.actualOutput || "(no output)"}
                                             </pre>
                                         </div>
-                                        
+
                                         {result.error && (
                                             <div className="rounded bg-red-900/30 p-2 text-xs text-red-400">
                                                 Error: {result.error}
@@ -236,13 +230,12 @@ function RunView() {
                         </div>
                     ) : (
                         <code>
-                            <pre className={`text-wrap ${
-                                output.toLowerCase().includes('error') || 
-                                output.toLowerCase().includes('traceback') ||
-                                output.toLowerCase().includes('exception')
+                            <pre className={`text-wrap ${output.toLowerCase().includes('error') ||
+                                    output.toLowerCase().includes('traceback') ||
+                                    output.toLowerCase().includes('exception')
                                     ? "text-red-400"
                                     : "text-white"
-                            }`}>
+                                }`}>
                                 {output || "(no output)"}
                             </pre>
                         </code>

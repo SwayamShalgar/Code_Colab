@@ -1,62 +1,65 @@
 import { useChatRoom } from "@/context/ChatContext"
 import { useViews } from "@/context/ViewContext"
 import { VIEWS } from "@/types/view"
-import { useState } from "react"
-import { Tooltip } from "react-tooltip"
-import { buttonStyles, tooltipStyles } from "../tooltipStyles"
 
 interface ViewButtonProps {
     viewName: VIEWS
     icon: JSX.Element
 }
 
-const ViewButton = ({ viewName, icon }: ViewButtonProps) => {
-    const { activeView, setActiveView, isSidebarOpen, setIsSidebarOpen } =
-        useViews()
-    const { isNewMessage } = useChatRoom()
-    const [showTooltip, setShowTooltip] = useState(true)
+const labels: Record<VIEWS, string> = {
+    [VIEWS.FILES]: "Files",
+    [VIEWS.TASKS]: "Tasks",
+    [VIEWS.CHATS]: "Chat",
+    [VIEWS.MEDIA]: "Calls",
+    [VIEWS.RUN]: "Run",
+    [VIEWS.CLIENTS]: "Team",
+    [VIEWS.SETTINGS]: "Settings",
+    [VIEWS.COPILOT]: "Assistant",
+}
 
-    const handleViewClick = (viewName: VIEWS) => {
-        if (viewName === activeView) {
-            setIsSidebarOpen(!isSidebarOpen)
-        } else {
-            setIsSidebarOpen(true)
-            setActiveView(viewName)
-        }
+export default function SidebarButton({
+    viewName,
+    icon,
+}: ViewButtonProps) {
+    const {
+        activeView,
+        setActiveView,
+        isSidebarOpen,
+        setIsSidebarOpen,
+    } = useViews()
+
+    const { isNewMessage } = useChatRoom()
+    const active = activeView === viewName && isSidebarOpen
+
+    const openView = () => {
+        setIsSidebarOpen(
+            activeView === viewName ? !isSidebarOpen : true,
+        )
+        setActiveView(viewName)
     }
 
     return (
-        <div className="relative flex flex-col items-center">
-            <button
-                onClick={() => handleViewClick(viewName)}
-                onMouseEnter={() => setShowTooltip(true)} // Show tooltip again on hover
-                className={`${buttonStyles.base} ${buttonStyles.hover}`}
-                {...(showTooltip && {
-                    "data-tooltip-id": `tooltip-${viewName}`,
-                    "data-tooltip-content": viewName,
-                })}
-            >
-                <div className="flex items-center justify-center">{icon}</div>
-                {/* Show dot for new message in chat View Button */}
-                {viewName === VIEWS.CHATS && isNewMessage && (
-                    <div className="absolute right-0 top-0 h-3 w-3 rounded-full bg-primary"></div>
-                )}
-            </button>
-            {/* render the tooltip */}
-            {showTooltip && (
-                <Tooltip
-                    id={`tooltip-${viewName}`}
-                    place="right"
-                    offset={25}
-                    className="!z-50"
-                    style={tooltipStyles}
-                    noArrow={false}
-                    positionStrategy="fixed"
-                    float={true}
+        <button
+            type="button"
+            className="orbit-nav-button"
+            aria-label={labels[viewName]}
+            aria-pressed={active}
+            title={labels[viewName]}
+            onClick={openView}
+        >
+            <span aria-hidden="true">{icon}</span>
+            <span className="orbit-nav-label">
+                {labels[viewName]}
+            </span>
+
+            {viewName === VIEWS.CHATS && isNewMessage && (
+                <span
+                    className="orbit-unread"
+                    role="status"
+                    aria-label="Unread messages"
                 />
             )}
-        </div>
+        </button>
     )
 }
-
-export default ViewButton
