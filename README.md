@@ -1,4 +1,4 @@
-﻿# CodeSync - Real-Time Collaborative Coding Platform
+﻿# CodeOrBit - Real-Time Collaborative Coding Platform
 
 <div align="center">
 
